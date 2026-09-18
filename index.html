@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5b47e0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:,">
+<title>My Divorce App</title>
+<style>
+:root {
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-primary: #5b47e0;
+  --color-primary-dark: #4636b8;
+  --color-danger: #d9534f;
+  --color-text: #1c1c1e;
+  --color-text-secondary: #6b6b70;
+  --color-border: #e2e2e6;
+  --color-mom: #c2255c;
+  --color-dad: #1864ab;
+  --badge-mom-bg: #fbe0ea;
+  --badge-dad-bg: #dceaf9;
+  --radius: 14px;
+  --nav-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f0f12;
+    --color-surface: #1c1c1f;
+    --color-text: #f2f2f3;
+    --color-text-secondary: #9a9aa0;
+    --color-border: #2e2e33;
+    --badge-mom-bg: #4a1530;
+    --badge-dad-bg: #0f2c47;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
+}
+button, input, textarea, select { font-family: inherit; color: inherit; }
+a { color: inherit; }
+#app { max-width: 480px; margin: 0 auto; padding: 20px 16px 24px; }
+
+.screen-header h1 { font-size: 22px; margin: 8px 0 16px; }
+.screen-header--form { display: flex; align-items: center; gap: 4px; }
+.screen-header--form h1 { margin: 0; font-size: 20px; }
+.btn-icon { background: none; border: none; font-size: 22px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--color-primary); cursor: pointer; }
+.logged-caption { margin: -8px 0 16px; font-size: 12px; color: var(--color-text-secondary); }
+
+.filter-bar { background: var(--color-surface); border-radius: var(--radius); padding: 12px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.filter-row { display: flex; gap: 10px; }
+.filter-row + .filter-row { margin-top: 10px; align-items: center; }
+.filter-row--actions { justify-content: space-between; }
+.filter-field { flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--color-text-secondary); gap: 4px; }
+.filter-field input { padding: 10px; border: 1px solid var(--color-border); border-radius: 10px; font-size: 15px; background: var(--color-bg); color: var(--color-text); min-height: 44px; }
+.checkbox-field { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.checkbox-field input { width: 20px; height: 20px; }
+.btn-link { background: none; border: none; color: var(--color-primary); font-size: 14px; padding: 8px; cursor: pointer; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--color-surface); border-radius: var(--radius); padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.05); cursor: pointer; }
+.card--deleted { opacity: .55; }
+.card-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.card-date { font-weight: 600; font-size: 14px; color: var(--color-text-secondary); }
+.card-desc { margin: 0; font-size: 15px; line-height: 1.4; }
+.card-meta { margin: 4px 0 0; font-size: 13px; color: var(--color-text-secondary); }
+
+.badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 100px; white-space: nowrap; }
+.badge-kids { background: #fff3cd; color: #8a6100; }
+.badge-deleted { background: #fde2e1; color: #a3231e; }
+.badge-mom { background: var(--badge-mom-bg); color: var(--color-mom); }
+.badge-dad { background: var(--badge-dad-bg); color: var(--color-dad); }
+.badge-overnight { background: #e7e2fb; color: #4636b8; }
+@media (prefers-color-scheme: dark) {
+  .badge-kids { background: #4a3c05; color: #ffd968; }
+  .badge-deleted { background: #4a1f1d; color: #ff8f89; }
+  .badge-overnight { background: #2c2650; color: #c2b6ff; }
+}
+
+.empty-state { text-align: center; padding: 48px 16px; color: var(--color-text-secondary); }
+
+.fab { position: fixed; right: 20px; bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px); width: 58px; height: 58px; border-radius: 50%; background: var(--color-primary); color: #fff; font-size: 30px; border: none; box-shadow: 0 4px 14px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; line-height: 1; cursor: pointer; z-index: 20; }
+
+.form { display: flex; flex-direction: column; gap: 18px; background: var(--color-surface); padding: 16px; border-radius: var(--radius); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 14px; font-weight: 600; color: var(--color-text-secondary); }
+.field-hint { font-size: 13px; color: var(--color-text-secondary); margin: 0; }
+.field input, .field textarea { padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; font-size: 16px; background: var(--color-bg); color: var(--color-text); width: 100%; min-height: 48px; }
+.field textarea { resize: vertical; min-height: 110px; font-family: inherit; }
+.field-group { display: flex; gap: 10px; }
+.field-group .field { flex: 1; }
+.time-range-row { display: flex; align-items: center; gap: 10px; }
+.time-range-row input { flex: 1; }
+
+.segmented { display: flex; border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
+.segmented-option { flex: 1; padding: 12px; background: var(--color-surface); border: none; font-size: 15px; font-weight: 600; color: var(--color-text-secondary); min-height: 48px; cursor: pointer; }
+.segmented-option + .segmented-option { border-left: 1px solid var(--color-border); }
+.segmented-option.is-active { background: var(--color-primary); color: #fff; }
+
+.form-actions { display: flex; gap: 10px; }
+.form-actions--stack { flex-direction: column; }
+.btn-primary { flex: 1; background: var(--color-primary); color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 600; min-height: 48px; cursor: pointer; }
+.btn-secondary { flex: 1; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border); padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; min-height: 48px; cursor: pointer; }
+.btn-danger { background: #fff; color: var(--color-danger); border: 1px solid var(--color-danger); padding: 14px 18px; border-radius: 12px; font-weight: 600; min-height: 48px; cursor: pointer; }
+@media (prefers-color-scheme: dark) { .btn-secondary { background: var(--color-bg); } .btn-danger { background: transparent; } }
+
+.history-panel { margin-top: 16px; background: var(--color-surface); border-radius: var(--radius); padding: 12px 16px; }
+.history-panel summary { font-weight: 600; font-size: 14px; cursor: pointer; }
+.history-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.history-list li { font-size: 13px; border-left: 2px solid var(--color-border); padding-left: 10px; }
+.history-time { display: block; color: var(--color-text-secondary); font-size: 12px; }
+.history-desc { display: block; margin-top: 2px; }
+
+.preset-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; -webkit-overflow-scrolling: touch; }
+.preset-tab { flex: 0 0 auto; padding: 10px 14px; border-radius: 100px; border: 1px solid var(--color-border); background: var(--color-surface); font-size: 13px; font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; cursor: pointer; min-height: 40px; }
+.preset-tab.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+.range-caption { text-align: center; font-size: 13px; color: var(--color-text-secondary); margin: 0 0 16px; }
+
+.summary-card { background: var(--color-surface); border-radius: var(--radius); padding: 18px 16px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.summary-card h2 { margin: 0 0 14px; font-size: 16px; }
+.donut { display: block; margin: 0 auto 16px; }
+.donut-center { font-size: 17px; font-weight: 700; fill: var(--color-text); }
+.legend { display: flex; flex-direction: column; gap: 8px; }
+.legend-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.dot-mom { background: var(--color-mom); }
+.dot-dad { background: var(--color-dad); }
+
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.bar-row:last-child { margin-bottom: 0; }
+.bar-label { width: 38px; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
+.bar-track { flex: 1; background: var(--color-bg); border-radius: 100px; height: 14px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 100px; }
+.bar-fill--mom { background: var(--color-mom); }
+.bar-fill--dad { background: var(--color-dad); }
+.bar-value { width: 56px; text-align: right; font-size: 13px; font-weight: 600; }
+
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--nav-height) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: var(--color-surface); border-top: 1px solid var(--color-border); display: flex; justify-content: space-around; align-items: center; max-width: 480px; margin: 0 auto; z-index: 30; }
+.nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--color-text-secondary); font-size: 11px; flex: 1; padding: 6px 0; min-height: 48px; justify-content: center; }
+.nav-item.is-active { color: var(--color-primary); }
+.nav-icon svg { width: 22px; height: 22px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(var(--nav-height) + var(--safe-bottom) + 20px); transform: translate(-50%, 10px); background: #1c1c1e; color: #fff; padding: 10px 18px; border-radius: 100px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: 90vw; text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; z-index: 100; }
+.modal { background: var(--color-surface); border-radius: 18px 18px 0 0; padding: 22px 20px calc(22px + var(--safe-bottom)); width: 100%; max-width: 480px; }
+@media (min-width: 520px) { .modal-overlay { align-items: center; } .modal { border-radius: 18px; } }
+.modal h2 { margin: 0 0 8px; font-size: 18px; }
+.modal p { margin: 0 0 18px; color: var(--color-text-secondary); font-size: 14px; }
+.modal-actions { display: flex; gap: 10px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<nav class="bottom-nav">
+  <a class="nav-item" data-route="incidents" href="#/incidents">
+    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z"/><rect x="5" y="5" width="14" height="16" rx="2"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>
+    <span>Incidents</span>
+  </a>
+  <a class="nav-item" data-route="parenting" href="#/parenting">
+    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+    <span>Time</span>
+  </a>
+  <a class="nav-item" data-route="summary" href="#/summary">
+    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="14"/></svg></span>
+    <span>Summary</span>
+  </a>
+  <a class="nav-item" data-route="settings" href="#/settings">
+    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+    <span>Settings</span>
+  </a>
+</nav>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   My Divorce App
+   Single-file mobile-first log tracker. Data lives entirely in this
+   browser's IndexedDB (local to the device). Currently implements:
+     - Incident Log
+     - Parenting Time Log (with automatic hours/%/overnight calculations)
+   New logs should follow the same pattern: an object store, a render*List
+   function, a render*Form function, a submit*Form function, and a
+   bottom-nav entry.
+   ========================================================================= */
+
+/* ---------------------------- DB layer ---------------------------- */
+
+const DB_NAME = "myDivorceAppDB";
+const DB_VERSION = 1;
+let db;
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const _db = e.target.result;
+      if (!_db.objectStoreNames.contains("incidents")) {
+        const s = _db.createObjectStore("incidents", { keyPath: "id", autoIncrement: true });
+        s.createIndex("date", "date");
+      }
+      if (!_db.objectStoreNames.contains("parentingTime")) {
+        const s = _db.createObjectStore("parentingTime", { keyPath: "id", autoIncrement: true });
+        s.createIndex("startDate", "startDate");
+      }
+      if (!_db.objectStoreNames.contains("settings")) {
+        _db.createObjectStore("settings", { keyPath: "key" });
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function txStore(name, mode) {
+  return db.transaction(name, mode || "readonly").objectStore(name);
+}
+function dbGetAll(name) {
+  return new Promise((resolve, reject) => {
+    const req = txStore(name).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function dbGet(name, id) {
+  return new Promise((resolve, reject) => {
+    const req = txStore(name).get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function dbPut(name, obj) {
+  return new Promise((resolve, reject) => {
+    const req = txStore(name, "readwrite").put(obj);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/* ---------------------------- Settings ---------------------------- */
+
+let cachedSettings = null;
+
+async function loadSettings() {
+  if (cachedSettings) return cachedSettings;
+  let s = await dbGet("settings", "settings");
+  if (!s) {
+    s = { key: "settings", overnightStart: "00:00", overnightEnd: "06:00" };
+    await dbPut("settings", s);
+  }
+  cachedSettings = s;
+  return s;
+}
+
+/* ---------------------------- Date / format helpers ---------------------------- */
+
+function pad(n) { return String(n).padStart(2, "0"); }
+function todayISO() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function nowTimeHHMM() { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+function nowISO() { return new Date().toISOString(); }
+function parseDT(dateStr, timeStr) { return new Date(dateStr + "T" + (timeStr || "00:00") + ":00"); }
+function fmtDate(dateStr) {
+  return parseDT(dateStr, "00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+function fmtTime(timeStr) {
+  const [h, m] = timeStr.split(":").map(Number);
+  const d = new Date(); d.setHours(h, m, 0, 0);
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+function fmtDateTime(dateStr, timeStr) { return fmtDate(dateStr) + ", " + fmtTime(timeStr); }
+function fmtTimestamp(iso) { return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); }
+function escapeHtml(str) {
+  return String(str == null ? "" : str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function truncate(str, n) { return str && str.length > n ? str.slice(0, n - 1) + "…" : (str || ""); }
+
+function diffFields(oldObj, newObj, fields) {
+  const changes = {};
+  fields.forEach((f) => {
+    const ov = oldObj ? oldObj[f] : undefined;
+    const nv = newObj[f];
+    if (JSON.stringify(ov) !== JSON.stringify(nv)) changes[f] = { old: ov, new: nv };
+  });
+  return changes;
+}
+
+const FIELD_LABELS = {
+  date: "Date", time: "Time", kidsPresent: "Kids present", description: "Description",
+  startDate: "Start date", startTime: "Start time", endDate: "End date", endTime: "End time", parent: "Parent"
+};
+function fieldLabel(f) { return FIELD_LABELS[f] || f; }
+function fmtVal(f, v) {
+  if (v === undefined) return "—";
+  if (f === "kidsPresent") return v ? "Yes" : "No";
+  if (v === "") return "(empty)";
+  return String(v);
+}
+
+function historyHtml(history) {
+  if (!history || !history.length) return "";
+  const items = [...history].reverse().map((h) => {
+    let desc;
+    if (h.action === "created") desc = "Entry created";
+    else if (h.action === "deleted") desc = "Entry deleted";
+    else if (h.action === "restored") desc = "Entry restored";
+    else {
+      const parts = Object.entries(h.changes || {}).map(([f, c]) => `${fieldLabel(f)}: "${fmtVal(f, c.old)}" → "${fmtVal(f, c.new)}"`);
+      desc = parts.length ? parts.join("; ") : "Entry edited";
+    }
+    return `<li><span class="history-time">${fmtTimestamp(h.ts)}</span><span class="history-desc">${escapeHtml(desc)}</span></li>`;
+  }).join("");
+  return `<details class="history-panel"><summary>Edit history (${history.length})</summary><ul class="history-list">${items}</ul></details>`;
+}
+
+/* ---------------------------- Overnight / summary math ---------------------------- */
+
+function countOvernightsForEntry(entry, settings, rangeStartDate, rangeEndDate) {
+  const [sh, sm] = settings.overnightStart.split(":").map(Number);
+  const [eh, em] = settings.overnightEnd.split(":").map(Number);
+  const crossesMidnight = (eh < sh) || (eh === sh && em <= sm);
+  let count = 0;
+  let d = new Date(entry.startDT.getFullYear(), entry.startDT.getMonth(), entry.startDT.getDate());
+  d.setDate(d.getDate() - 1);
+  const endBound = new Date(entry.endDT.getFullYear(), entry.endDT.getMonth(), entry.endDT.getDate());
+  endBound.setDate(endBound.getDate() + 1);
+  while (d <= endBound) {
+    const wStart = new Date(d); wStart.setHours(sh, sm, 0, 0);
+    const wEnd = new Date(d); if (crossesMidnight) wEnd.setDate(wEnd.getDate() + 1); wEnd.setHours(eh, em, 0, 0);
+    if (entry.startDT.getTime() <= wStart.getTime() && entry.endDT.getTime() >= wEnd.getTime()) {
+      const inRange = (!rangeStartDate || d.getTime() >= rangeStartDate.getTime()) && (!rangeEndDate || d.getTime() <= rangeEndDate.getTime());
+      if (inRange) count++;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+function computeSummary(entries, settings, rangeStart, rangeEnd) {
+  const result = { Mom: { hours: 0, overnights: 0 }, Dad: { hours: 0, overnights: 0 } };
+  const rangeStartDateOnly = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+  const rangeEndDateOnly = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+  const lastIncludedDate = new Date(rangeEndDateOnly); lastIncludedDate.setDate(lastIncludedDate.getDate() - 1);
+  entries.filter((e) => !e.deleted).forEach((e) => {
+    const startDT = parseDT(e.startDate, e.startTime);
+    const endDT = parseDT(e.endDate, e.endTime);
+    const overlapMs = Math.min(endDT.getTime(), rangeEnd.getTime()) - Math.max(startDT.getTime(), rangeStart.getTime());
+    if (overlapMs > 0) result[e.parent].hours += overlapMs / 3600000;
+    result[e.parent].overnights += countOvernightsForEntry({ startDT, endDT }, settings, rangeStartDateOnly, lastIncludedDate);
+  });
+  return result;
+}
+
+function getPresetRange(preset, customFrom, customTo) {
+  const now = new Date();
+  let start, end;
+  if (preset === "month") {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  } else if (preset === "3months") {
+    start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  } else if (preset === "year") {
+    start = new Date(now.getFullYear(), 0, 1);
+    end = new Date(now.getFullYear() + 1, 0, 1);
+  } else {
+    start = customFrom ? parseDT(customFrom, "00:00") : new Date(now.getFullYear(), now.getMonth(), 1);
+    end = customTo ? (() => { const d = parseDT(customTo, "00:00"); d.setDate(d.getDate() + 1); return d; })() : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  }
+  return { start, end };
+}
+
+/* ---------------------------- Filter / view state ---------------------------- */
+
+let incidentFilter = { from: null, to: null, showDeleted: false };
+let parentingFilter = { from: null, to: null, showDeleted: false };
+let summaryState = { preset: "month", customFrom: null, customTo: null };
+
+function incidentInRange(e, filter) {
+  if (filter.from && e.date < filter.from) return false;
+  if (filter.to && e.date > filter.to) return false;
+  return true;
+}
+function parentingInRange(e, filter) {
+  if (!filter.from && !filter.to) return true;
+  const from = filter.from || "0000-01-01";
+  const to = filter.to || "9999-12-31";
+  return e.startDate <= to && e.endDate >= from;
+}
+
+function filterBarHtml(prefix, filter) {
+  return `
+  <div class="filter-bar">
+    <div class="filter-row">
+      <label class="filter-field"><span>From</span><input type="date" data-filter="${prefix}:from" value="${filter.from || ""}"></label>
+      <label class="filter-field"><span>To</span><input type="date" data-filter="${prefix}:to" value="${filter.to || ""}"></label>
+    </div>
+    <div class="filter-row filter-row--actions">
+      <label class="checkbox-field"><input type="checkbox" data-filter="${prefix}:showDeleted" ${filter.showDeleted ? "checked" : ""}><span>Show deleted</span></label>
+      <button type="button" class="btn-link" data-action="clear-filter" data-prefix="${prefix}">Clear</button>
+    </div>
+  </div>`;
+}
+
+/* ---------------------------- Incident Log ---------------------------- */
+
+function incidentRowHtml(e) {
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/incidents/edit/${e.id}">
+    <div class="card-row">
+      <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
+      ${e.kidsPresent ? '<span class="badge badge-kids">Kids present</span>' : ""}
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+    </div>
+    <p class="card-desc">${escapeHtml(truncate(e.description, 140))}</p>
+  </div>`;
+}
+
+async function renderIncidentList() {
+  const all = await dbGetAll("incidents");
+  const filtered = all.filter((e) => incidentInRange(e, incidentFilter)).filter((e) => incidentFilter.showDeleted ? true : !e.deleted);
+  filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  const rows = filtered.map(incidentRowHtml).join("") || `<div class="empty-state"><p>No incidents ${incidentFilter.showDeleted ? "" : "logged"} in this range.</p></div>`;
+  return `
+  <div class="screen">
+    <header class="screen-header"><h1>Incident Log</h1></header>
+    ${filterBarHtml("incidents", incidentFilter)}
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/incidents/new" aria-label="Add incident">+</button>`;
+}
+
+async function renderIncidentForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("incidents", id);
+  const isEdit = !!entry;
+  const date = (entry && entry.date) || todayISO();
+  const time = (entry && entry.time) || nowTimeHHMM();
+  const kidsPresent = entry ? entry.kidsPresent : false;
+  const description = (entry && entry.description) || "";
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/incidents" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Incident</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="incident" data-id="${entry ? entry.id : ""}" class="form">
+      <div class="field">
+        <label for="inc-date">Date</label>
+        <input id="inc-date" name="date" type="date" value="${date}" required>
+      </div>
+      <div class="field">
+        <label for="inc-time">Time</label>
+        <input id="inc-time" name="time" type="time" value="${time}" required>
+      </div>
+      <div class="field">
+        <label>Kids present?</label>
+        <div class="segmented" data-name="kidsPresent">
+          <button type="button" class="segmented-option ${kidsPresent ? "is-active" : ""}" data-value="true">Yes</button>
+          <button type="button" class="segmented-option ${!kidsPresent ? "is-active" : ""}" data-value="false">No</button>
+        </div>
+        <input type="hidden" name="kidsPresent" value="${kidsPresent}">
+      </div>
+      <div class="field">
+        <label for="inc-desc">Description</label>
+        <textarea id="inc-desc" name="description" rows="6" placeholder="What happened?" required>${escapeHtml(description)}</textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-incident" : "delete-incident"}" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitIncidentForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const newData = {
+    date: fd.get("date"),
+    time: fd.get("time"),
+    kidsPresent: fd.get("kidsPresent") === "true",
+    description: (fd.get("description") || "").trim()
+  };
+  if (!newData.date || !newData.time || !newData.description) { showToast("Please fill in all fields"); return; }
+  const now = nowISO();
+  if (id) {
+    const existing = await dbGet("incidents", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, ["date", "time", "kidsPresent", "description"]);
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.updatedAt = now;
+    await dbPut("incidents", existing);
+  } else {
+    const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("incidents", entry);
+  }
+  showToast("Saved");
+  location.hash = "#/incidents";
+}
+
+/* ---------------------------- Parenting Time Log ---------------------------- */
+
+function parentingRowHtml(e, settings) {
+  const startDT = parseDT(e.startDate, e.startTime);
+  const endDT = parseDT(e.endDate, e.endTime);
+  const hours = Math.max(0, (endDT - startDT) / 3600000);
+  const overnights = countOvernightsForEntry({ startDT, endDT }, settings, null, null);
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  const parentCls = e.parent === "Mom" ? "badge-mom" : "badge-dad";
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/parenting/edit/${e.id}">
+    <div class="card-row">
+      <span class="badge ${parentCls}">${e.parent}</span>
+      ${overnights > 0 ? `<span class="badge badge-overnight">${overnights} overnight${overnights > 1 ? "s" : ""}</span>` : ""}
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+    </div>
+    <p class="card-desc">${fmtDateTime(e.startDate, e.startTime)} → ${fmtDateTime(e.endDate, e.endTime)}</p>
+    <p class="card-meta">${hours.toFixed(1)} hours</p>
+  </div>`;
+}
+
+async function renderParentingList() {
+  const settings = await loadSettings();
+  const all = await dbGetAll("parentingTime");
+  const filtered = all.filter((e) => parentingInRange(e, parentingFilter)).filter((e) => parentingFilter.showDeleted ? true : !e.deleted);
+  filtered.sort((a, b) => (b.startDate + b.startTime).localeCompare(a.startDate + a.startTime));
+  const rows = filtered.map((e) => parentingRowHtml(e, settings)).join("") || `<div class="empty-state"><p>No parenting time logged in this range.</p></div>`;
+  return `
+  <div class="screen">
+    <header class="screen-header"><h1>Parenting Time</h1></header>
+    ${filterBarHtml("parenting", parentingFilter)}
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/parenting/new" aria-label="Add parenting time">+</button>`;
+}
+
+async function renderParentingForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("parentingTime", id);
+  const isEdit = !!entry;
+  const startDate = (entry && entry.startDate) || todayISO();
+  const startTime = (entry && entry.startTime) || nowTimeHHMM();
+  const endDate = (entry && entry.endDate) || todayISO();
+  const endTime = (entry && entry.endTime) || nowTimeHHMM();
+  const parent = (entry && entry.parent) || "Mom";
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/parenting" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Parenting Time</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="parenting" data-id="${entry ? entry.id : ""}" class="form">
+      <div class="field">
+        <label>Parent</label>
+        <div class="segmented" data-name="parent">
+          <button type="button" class="segmented-option ${parent === "Mom" ? "is-active" : ""}" data-value="Mom">Mom</button>
+          <button type="button" class="segmented-option ${parent === "Dad" ? "is-active" : ""}" data-value="Dad">Dad</button>
+        </div>
+        <input type="hidden" name="parent" value="${parent}">
+      </div>
+      <div class="field-group">
+        <div class="field"><label for="pt-start-date">Start date</label><input id="pt-start-date" name="startDate" type="date" value="${startDate}" required></div>
+        <div class="field"><label for="pt-start-time">Start time</label><input id="pt-start-time" name="startTime" type="time" value="${startTime}" required></div>
+      </div>
+      <div class="field-group">
+        <div class="field"><label for="pt-end-date">End date</label><input id="pt-end-date" name="endDate" type="date" value="${endDate}" required></div>
+        <div class="field"><label for="pt-end-time">End time</label><input id="pt-end-time" name="endTime" type="time" value="${endTime}" required></div>
+      </div>
+      <p class="field-hint">Overnights are calculated automatically from the overnight window set in Settings — no need to mark them here.</p>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-parenting" : "delete-parenting"}" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitParentingForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const newData = {
+    startDate: fd.get("startDate"), startTime: fd.get("startTime"),
+    endDate: fd.get("endDate"), endTime: fd.get("endTime"),
+    parent: fd.get("parent")
+  };
+  if (Object.values(newData).some((v) => !v)) { showToast("Please fill in all fields"); return; }
+  const startDT = parseDT(newData.startDate, newData.startTime);
+  const endDT = parseDT(newData.endDate, newData.endTime);
+  if (endDT <= startDT) { showToast("End must be after start"); return; }
+  const now = nowISO();
+  if (id) {
+    const existing = await dbGet("parentingTime", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, ["startDate", "startTime", "endDate", "endTime", "parent"]);
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.updatedAt = now;
+    await dbPut("parentingTime", existing);
+  } else {
+    const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("parentingTime", entry);
+  }
+  showToast("Saved");
+  location.hash = "#/parenting";
+}
+
+/* ---------------------------- Summary ---------------------------- */
+
+function presetTabHtml(value, label) {
+  return `<button type="button" class="preset-tab ${summaryState.preset === value ? "is-active" : ""}" data-action="set-summary-preset" data-preset="${value}">${label}</button>`;
+}
+function fmtRangeCaption(start, end) {
+  const lastDay = new Date(end); lastDay.setDate(lastDay.getDate() - 1);
+  const opts = { month: "short", day: "numeric", year: "numeric" };
+  return `${start.toLocaleDateString(undefined, opts)} – ${lastDay.toLocaleDateString(undefined, opts)}`;
+}
+function barRowHtml(label, value, max, cls, unit) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  const display = Number.isInteger(value) ? value : value.toFixed(1);
+  return `
+  <div class="bar-row">
+    <span class="bar-label">${label}</span>
+    <div class="bar-track"><div class="bar-fill bar-fill--${cls}" style="width:${pct}%"></div></div>
+    <span class="bar-value">${display}${unit}</span>
+  </div>`;
+}
+function donutChartSvg(momPct, dadPct) {
+  const size = 160, stroke = 22, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const total = momPct + dadPct;
+  if (total <= 0) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="donut">
+      <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${stroke}"/>
+      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" class="donut-center">0%</text>
+    </svg>`;
+  }
+  const momLen = c * (momPct / 100);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="donut">
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${stroke}"/>
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--color-mom)" stroke-width="${stroke}" stroke-dasharray="${momLen} ${c - momLen}" stroke-dashoffset="0" transform="rotate(-90 ${size / 2} ${size / 2})"/>
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--color-dad)" stroke-width="${stroke}" stroke-dasharray="${c - momLen} ${momLen}" stroke-dashoffset="${-momLen}" transform="rotate(-90 ${size / 2} ${size / 2})"/>
+    <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" class="donut-center">${momPct.toFixed(0)}/${dadPct.toFixed(0)}</text>
+  </svg>`;
+}
+
+async function renderSummary() {
+  const settings = await loadSettings();
+  const all = await dbGetAll("parentingTime");
+  const { start, end } = getPresetRange(summaryState.preset, summaryState.customFrom, summaryState.customTo);
+  const result = computeSummary(all, settings, start, end);
+  const totalHours = result.Mom.hours + result.Dad.hours;
+  const totalOvernights = result.Mom.overnights + result.Dad.overnights;
+  const momPct = totalHours > 0 ? (result.Mom.hours / totalHours) * 100 : 0;
+  const dadPct = totalHours > 0 ? (result.Dad.hours / totalHours) * 100 : 0;
+  return `
+  <div class="screen">
+    <header class="screen-header"><h1>Summary</h1></header>
+    <div class="preset-tabs">
+      ${presetTabHtml("month", "This Month")}
+      ${presetTabHtml("3months", "Last 3 Months")}
+      ${presetTabHtml("year", "Year")}
+      ${presetTabHtml("custom", "Custom")}
+    </div>
+    ${summaryState.preset === "custom" ? `
+    <div class="filter-bar">
+      <div class="filter-row">
+        <label class="filter-field"><span>From</span><input type="date" data-filter="summary:from" value="${summaryState.customFrom || ""}"></label>
+        <label class="filter-field"><span>To</span><input type="date" data-filter="summary:to" value="${summaryState.customTo || ""}"></label>
+      </div>
+    </div>` : ""}
+    <p class="range-caption">${fmtRangeCaption(start, end)}</p>
+
+    ${totalHours === 0 && totalOvernights === 0 ? `<div class="empty-state"><p>No parenting time logged in this range.</p></div>` : ""}
+
+    <div class="summary-card">
+      <h2>Parenting Time Split</h2>
+      ${donutChartSvg(momPct, dadPct)}
+      <div class="legend">
+        <div class="legend-row"><span class="dot dot-mom"></span>Mom — ${result.Mom.hours.toFixed(1)}h (${momPct.toFixed(0)}%)</div>
+        <div class="legend-row"><span class="dot dot-dad"></span>Dad — ${result.Dad.hours.toFixed(1)}h (${dadPct.toFixed(0)}%)</div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <h2>Hours</h2>
+      ${barRowHtml("Mom", result.Mom.hours, Math.max(result.Mom.hours, result.Dad.hours, 1), "mom", "h")}
+      ${barRowHtml("Dad", result.Dad.hours, Math.max(result.Mom.hours, result.Dad.hours, 1), "dad", "h")}
+    </div>
+
+    <div class="summary-card">
+      <h2>Overnights</h2>
+      ${barRowHtml("Mom", result.Mom.overnights, Math.max(result.Mom.overnights, result.Dad.overnights, 1), "mom", "")}
+      ${barRowHtml("Dad", result.Dad.overnights, Math.max(result.Mom.overnights, result.Dad.overnights, 1), "dad", "")}
+    </div>
+  </div>`;
+}
+
+/* ---------------------------- Settings ---------------------------- */
+
+async function renderSettings() {
+  const settings = await loadSettings();
+  return `
+  <div class="screen">
+    <header class="screen-header"><h1>Settings</h1></header>
+    <form data-form="settings" class="form">
+      <div class="field">
+        <label>Overnight window</label>
+        <p class="field-hint">A parenting period counts as an overnight for a parent if it fully covers this time window at that parent's home.</p>
+        <div class="time-range-row">
+          <input type="time" name="overnightStart" value="${settings.overnightStart}" required>
+          <span>to</span>
+          <input type="time" name="overnightEnd" value="${settings.overnightEnd}" required>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save Settings</button>
+      </div>
+    </form>
+
+    <div class="summary-card">
+      <h2>Your Data</h2>
+      <p class="field-hint">All data is stored only on this device, in this browser. Export a backup regularly — especially before you need these logs for a legal matter.</p>
+      <div class="form-actions form-actions--stack" style="margin-top:14px;">
+        <button type="button" class="btn-secondary" data-action="export-data">Export backup (JSON)</button>
+        <button type="button" class="btn-secondary" data-action="import-data">Import backup (JSON)</button>
+        <input type="file" id="import-file" accept="application/json" style="display:none">
+      </div>
+    </div>
+  </div>`;
+}
+
+async function submitSettingsForm(form) {
+  const fd = new FormData(form);
+  const overnightStart = fd.get("overnightStart");
+  const overnightEnd = fd.get("overnightEnd");
+  if (overnightStart === overnightEnd) { showToast("Start and end time must differ"); return; }
+  const s = { key: "settings", overnightStart, overnightEnd };
+  await dbPut("settings", s);
+  cachedSettings = s;
+  showToast("Settings saved");
+  render();
+}
+
+async function exportData() {
+  const [incidents, parentingTime, settings] = await Promise.all([dbGetAll("incidents"), dbGetAll("parentingTime"), loadSettings()]);
+  const payload = { exportedAt: nowISO(), version: 1, incidents, parentingTime, settings };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `my-divorce-app-backup-${todayISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------------------- Toast + modal ---------------------------- */
+
+let toastTimer;
+function showToast(msg) {
+  let toast = document.getElementById("toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "toast";
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2000);
+}
+
+function confirmModal(title, msg, onConfirm, confirmLabel) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(msg)}</p>
+      <div class="modal-actions">
+        <button class="btn-secondary" data-modal="cancel">Cancel</button>
+        <button class="btn-danger" data-modal="confirm">${escapeHtml(confirmLabel || "Delete")}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay || e.target.dataset.modal === "cancel") { overlay.remove(); }
+    else if (e.target.dataset.modal === "confirm") { overlay.remove(); onConfirm(); }
+  });
+}
+
+/* ---------------------------- Router / render ---------------------------- */
+
+function currentRouteParts() {
+  const hash = location.hash.slice(1) || "/incidents";
+  return hash.split("/").filter(Boolean);
+}
+
+function updateNavActive(root) {
+  document.querySelectorAll(".nav-item").forEach((el) => {
+    el.classList.toggle("is-active", el.dataset.route === root);
+  });
+}
+
+async function render() {
+  const parts = currentRouteParts();
+  const root = parts[0] || "incidents";
+  updateNavActive(root);
+  const app = document.getElementById("app");
+  window.scrollTo(0, 0);
+  try {
+    if (root === "incidents") {
+      if (parts[1] === "new") app.innerHTML = await renderIncidentForm();
+      else if (parts[1] === "edit") app.innerHTML = await renderIncidentForm(Number(parts[2]));
+      else app.innerHTML = await renderIncidentList();
+    } else if (root === "parenting") {
+      if (parts[1] === "new") app.innerHTML = await renderParentingForm();
+      else if (parts[1] === "edit") app.innerHTML = await renderParentingForm(Number(parts[2]));
+      else app.innerHTML = await renderParentingList();
+    } else if (root === "summary") {
+      app.innerHTML = await renderSummary();
+    } else if (root === "settings") {
+      app.innerHTML = await renderSettings();
+    } else {
+      location.hash = "#/incidents";
+    }
+  } catch (err) {
+    console.error(err);
+    app.innerHTML = `<div class="empty-state"><p>Something went wrong loading this screen.</p><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+/* ---------------------------- Event delegation ---------------------------- */
+
+async function onAppClick(e) {
+  const seg = e.target.closest(".segmented-option");
+  if (seg) {
+    const wrap = seg.closest(".segmented");
+    wrap.querySelectorAll(".segmented-option").forEach((b) => b.classList.remove("is-active"));
+    seg.classList.add("is-active");
+    const hidden = wrap.parentElement.querySelector(`input[type="hidden"][name="${wrap.dataset.name}"]`);
+    if (hidden) hidden.value = seg.dataset.value;
+    return;
+  }
+
+  const actionEl = e.target.closest("[data-action]");
+  if (!actionEl) return;
+  const action = actionEl.dataset.action;
+
+  if (action === "nav") { location.hash = actionEl.dataset.href; return; }
+
+  if (action === "set-summary-preset") { summaryState.preset = actionEl.dataset.preset; render(); return; }
+
+  if (action === "clear-filter") {
+    const prefix = actionEl.dataset.prefix;
+    const obj = prefix === "incidents" ? incidentFilter : parentingFilter;
+    obj.from = null; obj.to = null; obj.showDeleted = false;
+    render();
+    return;
+  }
+
+  if (action === "export-data") { await exportData(); return; }
+  if (action === "import-data") { document.getElementById("import-file").click(); return; }
+
+  if (action === "delete-incident" || action === "delete-parenting") {
+    const store = action === "delete-incident" ? "incidents" : "parentingTime";
+    const id = Number(actionEl.dataset.id);
+    confirmModal("Delete this entry?", "It will be hidden from the log but kept on record so you can restore it later.", async () => {
+      const existing = await dbGet(store, id);
+      existing.history = existing.history || [];
+      existing.deleted = true;
+      existing.deletedAt = nowISO();
+      existing.history.push({ ts: nowISO(), action: "deleted", changes: {} });
+      await dbPut(store, existing);
+      showToast("Entry deleted");
+      location.hash = store === "incidents" ? "#/incidents" : "#/parenting";
+    }, "Delete");
+    return;
+  }
+
+  if (action === "restore-incident" || action === "restore-parenting") {
+    const store = action === "restore-incident" ? "incidents" : "parentingTime";
+    const id = Number(actionEl.dataset.id);
+    const existing = await dbGet(store, id);
+    existing.history = existing.history || [];
+    existing.deleted = false;
+    existing.history.push({ ts: nowISO(), action: "restored", changes: {} });
+    await dbPut(store, existing);
+    showToast("Entry restored");
+    render();
+    return;
+  }
+}
+
+async function onAppChange(e) {
+  const t = e.target;
+
+  if (t.id === "import-file" && t.files && t.files[0]) {
+    const file = t.files[0];
+    try {
+      const payload = JSON.parse(await file.text());
+      confirmModal("Import backup?", "This will merge the backup into your existing data. Entries with matching IDs will be overwritten.", async () => {
+        for (const inc of payload.incidents || []) await dbPut("incidents", inc);
+        for (const p of payload.parentingTime || []) await dbPut("parentingTime", p);
+        if (payload.settings) { const s = Object.assign({}, payload.settings, { key: "settings" }); await dbPut("settings", s); cachedSettings = s; }
+        showToast("Backup imported");
+        render();
+      }, "Import");
+    } catch (err) {
+      showToast("Invalid backup file");
+    }
+    return;
+  }
+
+  const df = t.closest("[data-filter]");
+  if (df) {
+    const [scope, key] = df.dataset.filter.split(":");
+    const value = t.type === "checkbox" ? t.checked : (t.value || null);
+    if (scope === "incidents") incidentFilter[key] = value;
+    else if (scope === "parenting") parentingFilter[key] = value;
+    else if (scope === "summary") summaryState[key === "from" ? "customFrom" : "customTo"] = value;
+    render();
+    return;
+  }
+}
+
+async function onAppSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const type = form.dataset.form;
+  if (type === "incident") return submitIncidentForm(form);
+  if (type === "parenting") return submitParentingForm(form);
+  if (type === "settings") return submitSettingsForm(form);
+}
+
+/* ---------------------------- Init ---------------------------- */
+
+window.addEventListener("hashchange", render);
+
+async function init() {
+  const app = document.getElementById("app");
+  app.addEventListener("click", onAppClick);
+  app.addEventListener("change", onAppChange);
+  app.addEventListener("submit", onAppSubmit);
+
+  try {
+    await openDatabase();
+  } catch (err) {
+    app.innerHTML = `<div class="empty-state"><p>This browser blocked local storage, so the app can't save data here. Try turning off private/incognito mode.</p></div>`;
+    return;
+  }
+  await loadSettings();
+
+  if (!location.hash) location.hash = "#/incidents";
+  else render();
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
