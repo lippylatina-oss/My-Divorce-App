@@ -22,6 +22,11 @@
   --color-dad: #1864ab;
   --badge-mom-bg: #fbe0ea;
   --badge-dad-bg: #dceaf9;
+  --color-incidents: #e8590c;
+  --color-finance: #2f9e44;
+  --color-camper: #1098ad;
+  --color-shop: #f59f00;
+  --color-courtdocs: #ae3ec9;
   --radius: 14px;
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -143,6 +148,27 @@ a { color: inherit; }
 .bar-fill--dad { background: var(--color-dad); }
 .bar-value { width: 56px; text-align: right; font-size: 13px; font-weight: 600; }
 
+.legend-row--split { justify-content: space-between; }
+
+.finance-month-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--color-border); font-size: 14px; gap: 10px; }
+.finance-month-row:last-child { border-bottom: none; }
+.finance-month-row .month-label { font-weight: 600; }
+.finance-month-row .month-amounts { color: var(--color-text-secondary); font-size: 13px; text-align: right; }
+
+.log-grid { display: flex; flex-direction: column; gap: 12px; }
+.log-card { display: flex; align-items: center; gap: 14px; background: var(--color-surface); border-radius: var(--radius); padding: 16px; text-decoration: none; color: var(--color-text); box-shadow: 0 1px 2px rgba(0,0,0,.04); border-left: 5px solid var(--log-color, var(--color-primary)); min-height: 64px; }
+.log-card-icon { color: var(--log-color, var(--color-primary)); display: flex; flex: none; }
+.log-card-icon svg { width: 24px; height: 24px; }
+.log-card-label { flex: 1; font-weight: 600; font-size: 16px; }
+.log-card-count { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg); padding: 4px 10px; border-radius: 100px; min-width: 28px; text-align: center; }
+
+.attachment-list { display: flex; flex-wrap: wrap; gap: 12px; }
+.attachment-chip { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 76px; cursor: pointer; }
+.attachment-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-bg); }
+.attachment-file-icon { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 26px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-bg); }
+.attachment-name { font-size: 11px; color: var(--color-text-secondary); text-align: center; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-remove { position: absolute; top: -6px; right: -2px; width: 22px; height: 22px; border-radius: 50%; background: var(--color-danger); color: #fff; border: 2px solid var(--color-surface); font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+
 .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--nav-height) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: var(--color-surface); border-top: 1px solid var(--color-border); display: flex; justify-content: space-around; align-items: center; max-width: 480px; margin: 0 auto; z-index: 30; }
 .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--color-text-secondary); font-size: 11px; flex: 1; padding: 6px 0; min-height: 48px; justify-content: center; }
 .nav-item.is-active { color: var(--color-primary); }
@@ -163,13 +189,9 @@ a { color: inherit; }
 <div id="app"></div>
 
 <nav class="bottom-nav">
-  <a class="nav-item" data-route="incidents" href="#/incidents">
-    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z"/><rect x="5" y="5" width="14" height="16" rx="2"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>
-    <span>Incidents</span>
-  </a>
-  <a class="nav-item" data-route="parenting" href="#/parenting">
-    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
-    <span>Time</span>
+  <a class="nav-item" data-route="logs" href="#/logs">
+    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+    <span>Logs</span>
   </a>
   <a class="nav-item" data-route="summary" href="#/summary">
     <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="14"/></svg></span>
@@ -190,15 +212,22 @@ a { color: inherit; }
    browser's IndexedDB (local to the device). Currently implements:
      - Incident Log
      - Parenting Time Log (with automatic hours/%/overnight calculations)
-   New logs should follow the same pattern: an object store, a render*List
-   function, a render*Form function, a submit*Form function, and a
-   bottom-nav entry.
+     - Finance Log (with running totals by month and date range)
+     - At Camper Log / At Shop Log (simple date+time entries)
+     - Court Docs Filed Log (with optional photo/PDF attachments)
+   All six logs are reached through the Logs hub (#/logs) rather than the
+   bottom nav directly, since six items won't fit a mobile tab bar. New
+   logs should follow the same pattern: an object store, a render*List
+   function, a render*Form function, a submit*Form function, and an entry
+   in LOG_CONFIG.
+   Not yet built: Day View, Calendar View, search/filter within a log,
+   PDF/CSV export, and CSV import (these are the next phase).
    ========================================================================= */
 
 /* ---------------------------- DB layer ---------------------------- */
 
 const DB_NAME = "myDivorceAppDB";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let db;
 
 function openDatabase() {
@@ -213,6 +242,22 @@ function openDatabase() {
       if (!_db.objectStoreNames.contains("parentingTime")) {
         const s = _db.createObjectStore("parentingTime", { keyPath: "id", autoIncrement: true });
         s.createIndex("startDate", "startDate");
+      }
+      if (!_db.objectStoreNames.contains("finance")) {
+        const s = _db.createObjectStore("finance", { keyPath: "id", autoIncrement: true });
+        s.createIndex("date", "date");
+      }
+      if (!_db.objectStoreNames.contains("camper")) {
+        const s = _db.createObjectStore("camper", { keyPath: "id", autoIncrement: true });
+        s.createIndex("date", "date");
+      }
+      if (!_db.objectStoreNames.contains("shop")) {
+        const s = _db.createObjectStore("shop", { keyPath: "id", autoIncrement: true });
+        s.createIndex("date", "date");
+      }
+      if (!_db.objectStoreNames.contains("courtdocs")) {
+        const s = _db.createObjectStore("courtdocs", { keyPath: "id", autoIncrement: true });
+        s.createIndex("dateFiled", "dateFiled");
       }
       if (!_db.objectStoreNames.contains("settings")) {
         _db.createObjectStore("settings", { keyPath: "key" });
@@ -280,6 +325,7 @@ function fmtTime(timeStr) {
 }
 function fmtDateTime(dateStr, timeStr) { return fmtDate(dateStr) + ", " + fmtTime(timeStr); }
 function fmtTimestamp(iso) { return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); }
+function fmtMoney(n) { return "$" + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -297,12 +343,15 @@ function diffFields(oldObj, newObj, fields) {
 
 const FIELD_LABELS = {
   date: "Date", time: "Time", kidsPresent: "Kids present", description: "Description",
-  startDate: "Start date", startTime: "Start time", endDate: "End date", endTime: "End time", parent: "Parent"
+  startDate: "Start date", startTime: "Start time", endDate: "End date", endTime: "End time", parent: "Parent",
+  amountPaid: "Amount paid", amountSupport: "Support payment amount",
+  dateFiled: "Date filed", documentName: "Document name", attachments: "Attachments"
 };
 function fieldLabel(f) { return FIELD_LABELS[f] || f; }
 function fmtVal(f, v) {
   if (v === undefined) return "—";
   if (f === "kidsPresent") return v ? "Yes" : "No";
+  if (f === "amountPaid" || f === "amountSupport") return fmtMoney(v);
   if (v === "") return "(empty)";
   return String(v);
 }
@@ -385,6 +434,12 @@ function getPresetRange(preset, customFrom, customTo) {
 let incidentFilter = { from: null, to: null, showDeleted: false };
 let parentingFilter = { from: null, to: null, showDeleted: false };
 let summaryState = { preset: "month", customFrom: null, customTo: null };
+let logFilters = {
+  finance: { from: null, to: null, showDeleted: false },
+  camper: { from: null, to: null, showDeleted: false },
+  shop: { from: null, to: null, showDeleted: false },
+  courtdocs: { from: null, to: null, showDeleted: false }
+};
 
 function incidentInRange(e, filter) {
   if (filter.from && e.date < filter.from) return false;
@@ -396,6 +451,17 @@ function parentingInRange(e, filter) {
   const from = filter.from || "0000-01-01";
   const to = filter.to || "9999-12-31";
   return e.startDate <= to && e.endDate >= from;
+}
+function dateInRange(e, filter, field) {
+  field = field || "date";
+  if (filter.from && e[field] < filter.from) return false;
+  if (filter.to && e[field] > filter.to) return false;
+  return true;
+}
+function getFilterObj(scope) {
+  if (scope === "incidents") return incidentFilter;
+  if (scope === "parenting") return parentingFilter;
+  return logFilters[scope] || null;
 }
 
 function filterBarHtml(prefix, filter) {
@@ -621,6 +687,410 @@ async function submitParentingForm(form) {
   location.hash = "#/parenting";
 }
 
+/* ---------------------------- Logs Hub ---------------------------- */
+
+const ICON_INCIDENTS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z"/><rect x="5" y="5" width="14" height="16" rx="2"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg>';
+const ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+const ICON_FINANCE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+const ICON_CAMPER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+const ICON_SHOP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>';
+const ICON_DOCS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+
+const LOG_CONFIG = [
+  { store: "incidents", route: "incidents", label: "Incident Log", color: "var(--color-incidents)", icon: ICON_INCIDENTS },
+  { store: "parentingTime", route: "parenting", label: "Parenting Time", color: "var(--color-primary)", icon: ICON_CLOCK },
+  { store: "finance", route: "finance", label: "Finance Log", color: "var(--color-finance)", icon: ICON_FINANCE },
+  { store: "camper", route: "camper", label: "At Camper Log", color: "var(--color-camper)", icon: ICON_CAMPER },
+  { store: "shop", route: "shop", label: "At Shop Log", color: "var(--color-shop)", icon: ICON_SHOP },
+  { store: "courtdocs", route: "courtdocs", label: "Court Docs Filed", color: "var(--color-courtdocs)", icon: ICON_DOCS }
+];
+const LOG_ROUTES = new Set(["logs", "incidents", "parenting", "finance", "camper", "shop", "courtdocs"]);
+
+function logHubCardHtml(cfg, count) {
+  return `
+  <a class="log-card" href="#/${cfg.route}" style="--log-color:${cfg.color}">
+    <span class="log-card-icon">${cfg.icon}</span>
+    <span class="log-card-label">${cfg.label}</span>
+    <span class="log-card-count">${count}</span>
+  </a>`;
+}
+
+async function renderLogsHub() {
+  const counts = await Promise.all(LOG_CONFIG.map(async (cfg) => {
+    const all = await dbGetAll(cfg.store);
+    return all.filter((e) => !e.deleted).length;
+  }));
+  const cards = LOG_CONFIG.map((cfg, i) => logHubCardHtml(cfg, counts[i])).join("");
+  return `
+  <div class="screen">
+    <header class="screen-header"><h1>Logs</h1></header>
+    <div class="log-grid">${cards}</div>
+  </div>`;
+}
+
+/* ---------------------------- Finance Log ---------------------------- */
+
+function financeRowHtml(e) {
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/finance/edit/${e.id}">
+    <div class="card-row">
+      <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+    </div>
+    <p class="card-meta">Paid ${fmtMoney(e.amountPaid)} &nbsp;·&nbsp; Support due ${fmtMoney(e.amountSupport)}</p>
+    ${e.description ? `<p class="card-desc">${escapeHtml(truncate(e.description, 120))}</p>` : ""}
+  </div>`;
+}
+
+function computeFinanceTotals(entries) {
+  const overall = { paid: 0, support: 0 };
+  const byMonthMap = {};
+  entries.forEach((e) => {
+    overall.paid += Number(e.amountPaid) || 0;
+    overall.support += Number(e.amountSupport) || 0;
+    const monthKey = e.date.slice(0, 7);
+    if (!byMonthMap[monthKey]) byMonthMap[monthKey] = { paid: 0, support: 0 };
+    byMonthMap[monthKey].paid += Number(e.amountPaid) || 0;
+    byMonthMap[monthKey].support += Number(e.amountSupport) || 0;
+  });
+  const byMonth = Object.keys(byMonthMap).sort().reverse().map((k) => ({
+    monthKey: k,
+    label: new Date(k + "-01T00:00:00").toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+    paid: byMonthMap[k].paid,
+    support: byMonthMap[k].support
+  }));
+  return { overall, byMonth };
+}
+
+async function renderFinanceList() {
+  const filter = logFilters.finance;
+  const all = await dbGetAll("finance");
+  const filtered = all.filter((e) => dateInRange(e, filter, "date")).filter((e) => filter.showDeleted ? true : !e.deleted);
+  filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  const totals = computeFinanceTotals(filtered.filter((e) => !e.deleted));
+  const rows = filtered.map(financeRowHtml).join("") || `<div class="empty-state"><p>No finance entries in this range.</p></div>`;
+  const monthRows = totals.byMonth.map((m) => `
+    <div class="finance-month-row">
+      <span class="month-label">${m.label}</span>
+      <span class="month-amounts">Paid ${fmtMoney(m.paid)} · Due ${fmtMoney(m.support)}</span>
+    </div>`).join("") || `<p class="field-hint">No entries yet.</p>`;
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>Finance Log</h1></header>
+    ${filterBarHtml("finance", filter)}
+    <div class="summary-card">
+      <h2>Totals for this range</h2>
+      <div class="legend">
+        <div class="legend-row legend-row--split"><span>Total paid</span><strong>${fmtMoney(totals.overall.paid)}</strong></div>
+        <div class="legend-row legend-row--split"><span>Total support due</span><strong>${fmtMoney(totals.overall.support)}</strong></div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <h2>By Month</h2>
+      ${monthRows}
+    </div>
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/finance/new" aria-label="Add finance entry">+</button>`;
+}
+
+async function renderFinanceForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("finance", id);
+  const isEdit = !!entry;
+  const date = (entry && entry.date) || todayISO();
+  const time = (entry && entry.time) || nowTimeHHMM();
+  const amountPaid = entry ? entry.amountPaid : "";
+  const amountSupport = entry ? entry.amountSupport : "";
+  const description = (entry && entry.description) || "";
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/finance" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Finance Entry</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="finance" data-id="${entry ? entry.id : ""}" class="form">
+      <div class="field-group">
+        <div class="field"><label for="fin-date">Date</label><input id="fin-date" name="date" type="date" value="${date}" required></div>
+        <div class="field"><label for="fin-time">Time</label><input id="fin-time" name="time" type="time" value="${time}" required></div>
+      </div>
+      <div class="field-group">
+        <div class="field"><label for="fin-paid">Amount paid</label><input id="fin-paid" name="amountPaid" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" value="${amountPaid}"></div>
+        <div class="field"><label for="fin-support">Support payment amount</label><input id="fin-support" name="amountSupport" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" value="${amountSupport}"></div>
+      </div>
+      <div class="field">
+        <label for="fin-desc">Description</label>
+        <textarea id="fin-desc" name="description" rows="4" placeholder="Optional note">${escapeHtml(description)}</textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="finance" data-route="finance" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitFinanceForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const newData = {
+    date: fd.get("date"),
+    time: fd.get("time"),
+    amountPaid: Math.max(0, parseFloat(fd.get("amountPaid")) || 0),
+    amountSupport: Math.max(0, parseFloat(fd.get("amountSupport")) || 0),
+    description: (fd.get("description") || "").trim()
+  };
+  if (!newData.date || !newData.time) { showToast("Please fill in date and time"); return; }
+  const now = nowISO();
+  if (id) {
+    const existing = await dbGet("finance", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, ["date", "time", "amountPaid", "amountSupport", "description"]);
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.updatedAt = now;
+    await dbPut("finance", existing);
+  } else {
+    const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("finance", entry);
+  }
+  showToast("Saved");
+  location.hash = "#/finance";
+}
+
+/* ---------------------------- At Camper / At Shop Logs ---------------------------- */
+/* Both logs are a bare date+time entry, so they share one factory. */
+
+function makeTimestampLog(storeName, routePrefix, label) {
+  function rowHtml(e) {
+    const deletedCls = e.deleted ? " card--deleted" : "";
+    return `
+    <div class="card${deletedCls}" data-action="nav" data-href="#/${routePrefix}/edit/${e.id}">
+      <div class="card-row">
+        <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
+        ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+      </div>
+    </div>`;
+  }
+  async function renderList() {
+    const filter = logFilters[routePrefix];
+    const all = await dbGetAll(storeName);
+    const filtered = all.filter((e) => dateInRange(e, filter, "date")).filter((e) => filter.showDeleted ? true : !e.deleted);
+    filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    const rows = filtered.map(rowHtml).join("") || `<div class="empty-state"><p>No entries in this range.</p></div>`;
+    return `
+    <div class="screen">
+      <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>${label}</h1></header>
+      ${filterBarHtml(routePrefix, filter)}
+      <div class="list">${rows}</div>
+    </div>
+    <button class="fab" data-action="nav" data-href="#/${routePrefix}/new" aria-label="Add entry">+</button>`;
+  }
+  async function renderForm(id) {
+    let entry = null;
+    if (id) entry = await dbGet(storeName, id);
+    const isEdit = !!entry;
+    const date = (entry && entry.date) || todayISO();
+    const time = (entry && entry.time) || nowTimeHHMM();
+    return `
+    <div class="screen">
+      <header class="screen-header screen-header--form">
+        <button type="button" class="btn-icon" data-action="nav" data-href="#/${routePrefix}" aria-label="Back">←</button>
+        <h1>${isEdit ? "Edit" : "New"} Entry</h1>
+      </header>
+      ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+      <form data-form="${routePrefix}" data-id="${entry ? entry.id : ""}" class="form">
+        <div class="field"><label for="${routePrefix}-date">Date</label><input id="${routePrefix}-date" name="date" type="date" value="${date}" required></div>
+        <div class="field"><label for="${routePrefix}-time">Time</label><input id="${routePrefix}-time" name="time" type="time" value="${time}" required></div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Save</button>
+          ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="${storeName}" data-route="${routePrefix}" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+        </div>
+      </form>
+      ${isEdit ? historyHtml(entry.history) : ""}
+    </div>`;
+  }
+  async function submitForm(form) {
+    const id = form.dataset.id ? Number(form.dataset.id) : null;
+    const fd = new FormData(form);
+    const newData = { date: fd.get("date"), time: fd.get("time") };
+    if (!newData.date || !newData.time) { showToast("Please fill in all fields"); return; }
+    const now = nowISO();
+    if (id) {
+      const existing = await dbGet(storeName, id);
+      existing.history = existing.history || [];
+      const changes = diffFields(existing, newData, ["date", "time"]);
+      if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+      Object.assign(existing, newData);
+      existing.updatedAt = now;
+      await dbPut(storeName, existing);
+    } else {
+      const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+      await dbPut(storeName, entry);
+    }
+    showToast("Saved");
+    location.hash = "#/" + routePrefix;
+  }
+  return { renderList, renderForm, submitForm };
+}
+
+const camperLog = makeTimestampLog("camper", "camper", "At Camper Log");
+const shopLog = makeTimestampLog("shop", "shop", "At Shop Log");
+
+/* ---------------------------- Court Docs Filed Log ---------------------------- */
+
+let courtDocsPendingAttachments = [];
+let courtDocsObjectUrls = [];
+
+function clearCourtDocsObjectUrls() {
+  courtDocsObjectUrls.forEach((u) => URL.revokeObjectURL(u));
+  courtDocsObjectUrls = [];
+}
+
+async function blobToBase64(blob) {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+function base64ToBlob(base64, type) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
+
+function courtDocsRowHtml(e) {
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  const attCount = (e.attachments || []).length;
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/courtdocs/edit/${e.id}">
+    <div class="card-row">
+      <span class="card-date">${fmtDate(e.dateFiled)}</span>
+      ${attCount > 0 ? `<span class="badge badge-overnight">${attCount} file${attCount > 1 ? "s" : ""}</span>` : ""}
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+    </div>
+    <p class="card-desc">${escapeHtml(e.documentName)}</p>
+  </div>`;
+}
+
+async function renderCourtDocsList() {
+  const filter = logFilters.courtdocs;
+  const all = await dbGetAll("courtdocs");
+  const filtered = all.filter((e) => dateInRange(e, filter, "dateFiled")).filter((e) => filter.showDeleted ? true : !e.deleted);
+  filtered.sort((a, b) => b.dateFiled.localeCompare(a.dateFiled));
+  const rows = filtered.map(courtDocsRowHtml).join("") || `<div class="empty-state"><p>No documents logged in this range.</p></div>`;
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>Court Docs Filed</h1></header>
+    ${filterBarHtml("courtdocs", filter)}
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/courtdocs/new" aria-label="Add document">+</button>`;
+}
+
+function attachmentChipHtml(item, idx) {
+  const isImage = item.type && item.type.indexOf("image/") === 0;
+  let thumb;
+  if (isImage) {
+    const url = URL.createObjectURL(item.blob);
+    courtDocsObjectUrls.push(url);
+    thumb = `<img src="${url}" alt="" class="attachment-thumb">`;
+  } else {
+    thumb = `<span class="attachment-file-icon">📄</span>`;
+  }
+  return `
+  <div class="attachment-chip" data-action="open-attachment" data-idx="${idx}">
+    ${thumb}
+    <span class="attachment-name">${escapeHtml(truncate(item.name, 22))}</span>
+    <button type="button" class="attachment-remove" data-action="remove-attachment" data-idx="${idx}" aria-label="Remove attachment">×</button>
+  </div>`;
+}
+
+function renderAttachmentChips() {
+  const container = document.getElementById("courtdocs-attachments-list");
+  if (!container) return;
+  clearCourtDocsObjectUrls();
+  container.innerHTML = courtDocsPendingAttachments.map(attachmentChipHtml).join("") || `<p class="field-hint">No files attached yet.</p>`;
+}
+
+async function renderCourtDocsForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("courtdocs", id);
+  const isEdit = !!entry;
+  const dateFiled = (entry && entry.dateFiled) || todayISO();
+  const documentName = (entry && entry.documentName) || "";
+  courtDocsPendingAttachments = entry ? (entry.attachments || []).map((a) => Object.assign({}, a)) : [];
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/courtdocs" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Court Doc</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="courtdocs" data-id="${entry ? entry.id : ""}" class="form">
+      <div class="field">
+        <label for="cd-date">Date filed</label>
+        <input id="cd-date" name="dateFiled" type="date" value="${dateFiled}" required>
+      </div>
+      <div class="field">
+        <label for="cd-name">Document name</label>
+        <input id="cd-name" name="documentName" type="text" placeholder="e.g. Motion to Modify Custody" value="${escapeHtml(documentName)}" required>
+      </div>
+      <div class="field">
+        <label>Attachments (optional)</label>
+        <div id="courtdocs-attachments-list" class="attachment-list"></div>
+        <button type="button" class="btn-secondary" data-action="add-attachment">+ Add photo or PDF</button>
+        <input type="file" id="courtdocs-file-input" accept="image/*,application/pdf" multiple style="display:none">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="courtdocs" data-route="courtdocs" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitCourtDocsForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const newData = {
+    dateFiled: fd.get("dateFiled"),
+    documentName: (fd.get("documentName") || "").trim()
+  };
+  if (!newData.dateFiled || !newData.documentName) { showToast("Please fill in date filed and document name"); return; }
+  const attachments = courtDocsPendingAttachments.map((a) => ({ name: a.name, type: a.type, size: a.size, blob: a.blob }));
+  const now = nowISO();
+  if (id) {
+    const existing = await dbGet("courtdocs", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, ["dateFiled", "documentName"]);
+    const oldNames = (existing.attachments || []).map((a) => a.name).sort().join(", ");
+    const newNames = attachments.map((a) => a.name).sort().join(", ");
+    if (oldNames !== newNames) changes.attachments = { old: oldNames || "(none)", new: newNames || "(none)" };
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.attachments = attachments;
+    existing.updatedAt = now;
+    await dbPut("courtdocs", existing);
+  } else {
+    const entry = Object.assign({}, newData, { attachments, createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("courtdocs", entry);
+  }
+  courtDocsPendingAttachments = [];
+  clearCourtDocsObjectUrls();
+  showToast("Saved");
+  location.hash = "#/courtdocs";
+}
+
 /* ---------------------------- Summary ---------------------------- */
 
 function presetTabHtml(value, label) {
@@ -757,9 +1227,30 @@ async function submitSettingsForm(form) {
   render();
 }
 
+async function serializeCourtDocsForExport(entries) {
+  return Promise.all(entries.map(async (e) => {
+    const attachments = await Promise.all((e.attachments || []).map(async (a) => ({
+      name: a.name, type: a.type, size: a.size, dataBase64: await blobToBase64(a.blob)
+    })));
+    return Object.assign({}, e, { attachments });
+  }));
+}
+function deserializeCourtDocsFromImport(entries) {
+  return (entries || []).map((e) => {
+    const attachments = (e.attachments || []).map((a) => ({
+      name: a.name, type: a.type, size: a.size, blob: base64ToBlob(a.dataBase64, a.type)
+    }));
+    return Object.assign({}, e, { attachments });
+  });
+}
+
 async function exportData() {
-  const [incidents, parentingTime, settings] = await Promise.all([dbGetAll("incidents"), dbGetAll("parentingTime"), loadSettings()]);
-  const payload = { exportedAt: nowISO(), version: 1, incidents, parentingTime, settings };
+  const [incidents, parentingTime, finance, camper, shop, courtdocsRaw, settings] = await Promise.all([
+    dbGetAll("incidents"), dbGetAll("parentingTime"), dbGetAll("finance"),
+    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), loadSettings()
+  ]);
+  const courtdocs = await serializeCourtDocsForExport(courtdocsRaw);
+  const payload = { exportedAt: nowISO(), version: 2, incidents, parentingTime, finance, camper, shop, courtdocs, settings };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -807,13 +1298,14 @@ function confirmModal(title, msg, onConfirm, confirmLabel) {
 /* ---------------------------- Router / render ---------------------------- */
 
 function currentRouteParts() {
-  const hash = location.hash.slice(1) || "/incidents";
+  const hash = location.hash.slice(1) || "/logs";
   return hash.split("/").filter(Boolean);
 }
 
 function updateNavActive(root) {
+  const navRoot = LOG_ROUTES.has(root) ? "logs" : root;
   document.querySelectorAll(".nav-item").forEach((el) => {
-    el.classList.toggle("is-active", el.dataset.route === root);
+    el.classList.toggle("is-active", el.dataset.route === navRoot);
   });
 }
 
@@ -832,12 +1324,30 @@ async function render() {
       if (parts[1] === "new") app.innerHTML = await renderParentingForm();
       else if (parts[1] === "edit") app.innerHTML = await renderParentingForm(Number(parts[2]));
       else app.innerHTML = await renderParentingList();
+    } else if (root === "logs") {
+      app.innerHTML = await renderLogsHub();
+    } else if (root === "finance") {
+      if (parts[1] === "new") app.innerHTML = await renderFinanceForm();
+      else if (parts[1] === "edit") app.innerHTML = await renderFinanceForm(Number(parts[2]));
+      else app.innerHTML = await renderFinanceList();
+    } else if (root === "camper") {
+      if (parts[1] === "new") app.innerHTML = await camperLog.renderForm();
+      else if (parts[1] === "edit") app.innerHTML = await camperLog.renderForm(Number(parts[2]));
+      else app.innerHTML = await camperLog.renderList();
+    } else if (root === "shop") {
+      if (parts[1] === "new") app.innerHTML = await shopLog.renderForm();
+      else if (parts[1] === "edit") app.innerHTML = await shopLog.renderForm(Number(parts[2]));
+      else app.innerHTML = await shopLog.renderList();
+    } else if (root === "courtdocs") {
+      if (parts[1] === "new") { app.innerHTML = await renderCourtDocsForm(); renderAttachmentChips(); }
+      else if (parts[1] === "edit") { app.innerHTML = await renderCourtDocsForm(Number(parts[2])); renderAttachmentChips(); }
+      else app.innerHTML = await renderCourtDocsList();
     } else if (root === "summary") {
       app.innerHTML = await renderSummary();
     } else if (root === "settings") {
       app.innerHTML = await renderSettings();
     } else {
-      location.hash = "#/incidents";
+      location.hash = "#/logs";
     }
   } catch (err) {
     console.error(err);
@@ -867,15 +1377,55 @@ async function onAppClick(e) {
   if (action === "set-summary-preset") { summaryState.preset = actionEl.dataset.preset; render(); return; }
 
   if (action === "clear-filter") {
-    const prefix = actionEl.dataset.prefix;
-    const obj = prefix === "incidents" ? incidentFilter : parentingFilter;
-    obj.from = null; obj.to = null; obj.showDeleted = false;
+    const obj = getFilterObj(actionEl.dataset.prefix);
+    if (obj) { obj.from = null; obj.to = null; obj.showDeleted = false; }
     render();
     return;
   }
 
   if (action === "export-data") { await exportData(); return; }
   if (action === "import-data") { document.getElementById("import-file").click(); return; }
+
+  if (action === "add-attachment") { document.getElementById("courtdocs-file-input").click(); return; }
+  if (action === "remove-attachment") {
+    const idx = Number(actionEl.dataset.idx);
+    courtDocsPendingAttachments.splice(idx, 1);
+    renderAttachmentChips();
+    return;
+  }
+  if (action === "open-attachment") {
+    const idx = Number(actionEl.dataset.idx);
+    const item = courtDocsPendingAttachments[idx];
+    if (item) window.open(URL.createObjectURL(item.blob), "_blank");
+    return;
+  }
+
+  if (action === "delete-entry" || action === "restore-entry") {
+    const store = actionEl.dataset.store;
+    const routePrefix = actionEl.dataset.route;
+    const id = Number(actionEl.dataset.id);
+    if (action === "delete-entry") {
+      confirmModal("Delete this entry?", "It will be hidden from the log but kept on record so you can restore it later.", async () => {
+        const existing = await dbGet(store, id);
+        existing.history = existing.history || [];
+        existing.deleted = true;
+        existing.deletedAt = nowISO();
+        existing.history.push({ ts: nowISO(), action: "deleted", changes: {} });
+        await dbPut(store, existing);
+        showToast("Entry deleted");
+        location.hash = "#/" + routePrefix;
+      }, "Delete");
+    } else {
+      const existing = await dbGet(store, id);
+      existing.history = existing.history || [];
+      existing.deleted = false;
+      existing.history.push({ ts: nowISO(), action: "restored", changes: {} });
+      await dbPut(store, existing);
+      showToast("Entry restored");
+      render();
+    }
+    return;
+  }
 
   if (action === "delete-incident" || action === "delete-parenting") {
     const store = action === "delete-incident" ? "incidents" : "parentingTime";
@@ -910,6 +1460,15 @@ async function onAppClick(e) {
 async function onAppChange(e) {
   const t = e.target;
 
+  if (t.id === "courtdocs-file-input" && t.files && t.files.length) {
+    Array.from(t.files).forEach((file) => {
+      courtDocsPendingAttachments.push({ name: file.name, type: file.type, size: file.size, blob: file });
+    });
+    t.value = "";
+    renderAttachmentChips();
+    return;
+  }
+
   if (t.id === "import-file" && t.files && t.files[0]) {
     const file = t.files[0];
     try {
@@ -917,6 +1476,10 @@ async function onAppChange(e) {
       confirmModal("Import backup?", "This will merge the backup into your existing data. Entries with matching IDs will be overwritten.", async () => {
         for (const inc of payload.incidents || []) await dbPut("incidents", inc);
         for (const p of payload.parentingTime || []) await dbPut("parentingTime", p);
+        for (const f of payload.finance || []) await dbPut("finance", f);
+        for (const c of payload.camper || []) await dbPut("camper", c);
+        for (const s of payload.shop || []) await dbPut("shop", s);
+        for (const cd of deserializeCourtDocsFromImport(payload.courtdocs)) await dbPut("courtdocs", cd);
         if (payload.settings) { const s = Object.assign({}, payload.settings, { key: "settings" }); await dbPut("settings", s); cachedSettings = s; }
         showToast("Backup imported");
         render();
@@ -931,9 +1494,11 @@ async function onAppChange(e) {
   if (df) {
     const [scope, key] = df.dataset.filter.split(":");
     const value = t.type === "checkbox" ? t.checked : (t.value || null);
-    if (scope === "incidents") incidentFilter[key] = value;
-    else if (scope === "parenting") parentingFilter[key] = value;
-    else if (scope === "summary") summaryState[key === "from" ? "customFrom" : "customTo"] = value;
+    if (scope === "summary") summaryState[key === "from" ? "customFrom" : "customTo"] = value;
+    else {
+      const obj = getFilterObj(scope);
+      if (obj) obj[key] = value;
+    }
     render();
     return;
   }
@@ -945,6 +1510,10 @@ async function onAppSubmit(e) {
   const type = form.dataset.form;
   if (type === "incident") return submitIncidentForm(form);
   if (type === "parenting") return submitParentingForm(form);
+  if (type === "finance") return submitFinanceForm(form);
+  if (type === "camper") return camperLog.submitForm(form);
+  if (type === "shop") return shopLog.submitForm(form);
+  if (type === "courtdocs") return submitCourtDocsForm(form);
   if (type === "settings") return submitSettingsForm(form);
 }
 
@@ -966,7 +1535,7 @@ async function init() {
   }
   await loadSettings();
 
-  if (!location.hash) location.hash = "#/incidents";
+  if (!location.hash) location.hash = "#/logs";
   else render();
 }
 
