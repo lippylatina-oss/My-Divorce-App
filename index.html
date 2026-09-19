@@ -731,10 +731,12 @@ async function loadSettings() {
   if (cachedSettings) return cachedSettings;
   let s = await dbGet("settings", "settings");
   if (!s) {
-    s = { key: "settings", overnightStart: "00:00", overnightEnd: "06:00", children: [] };
+    s = { key: "settings", overnightStart: "00:00", overnightEnd: "06:00", children: [], parentingCalcMode: "explicit", remainderParent: "Mom" };
     await dbPut("settings", s);
   }
   if (!s.children) s.children = [];
+  if (!s.parentingCalcMode) s.parentingCalcMode = "explicit";
+  if (!s.remainderParent) s.remainderParent = "Mom";
   cachedSettings = s;
   return s;
 }
@@ -838,10 +840,30 @@ function countOvernightsForEntry(entry, settings, rangeStartDate, rangeEndDate) 
 }
 
 function computeSummary(entries, settings, rangeStart, rangeEnd) {
-  const result = { Mom: { hours: 0, overnights: 0 }, Dad: { hours: 0, overnights: 0 } };
   const rangeStartDateOnly = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
   const rangeEndDateOnly = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
   const lastIncludedDate = new Date(rangeEndDateOnly); lastIncludedDate.setDate(lastIncludedDate.getDate() - 1);
+  const result = { Mom: { hours: 0, overnights: 0 }, Dad: { hours: 0, overnights: 0 } };
+
+  if (settings.parentingCalcMode === "remainder") {
+    // "Implied parent" mode: only the other parent's visits are logged; whatever
+    // isn't explicitly logged for them is assumed to belong to remainderParent.
+    const remainderParent = settings.remainderParent === "Dad" ? "Dad" : "Mom";
+    const otherParent = remainderParent === "Mom" ? "Dad" : "Mom";
+    entries.filter((e) => !e.deleted && e.parent === otherParent).forEach((e) => {
+      const startDT = parseDT(e.startDate, e.startTime);
+      const endDT = parseDT(e.endDate, e.endTime);
+      const overlapMs = Math.min(endDT.getTime(), rangeEnd.getTime()) - Math.max(startDT.getTime(), rangeStart.getTime());
+      if (overlapMs > 0) result[otherParent].hours += overlapMs / 3600000;
+      result[otherParent].overnights += countOvernightsForEntry({ startDT, endDT }, settings, rangeStartDateOnly, lastIncludedDate);
+    });
+    const totalRangeHours = Math.max(0, (rangeEnd.getTime() - rangeStart.getTime()) / 3600000);
+    const totalNights = Math.round((lastIncludedDate.getTime() - rangeStartDateOnly.getTime()) / 86400000) + 1;
+    result[remainderParent].hours = Math.max(0, totalRangeHours - result[otherParent].hours);
+    result[remainderParent].overnights = Math.max(0, totalNights - result[otherParent].overnights);
+    return result;
+  }
+
   entries.filter((e) => !e.deleted).forEach((e) => {
     const startDT = parseDT(e.startDate, e.startTime);
     const endDT = parseDT(e.endDate, e.endTime);
@@ -2567,6 +2589,27 @@ async function renderSettings() {
           <input type="time" name="overnightEnd" value="${settings.overnightEnd}" required>
         </div>
       </div>
+
+      <div class="field">
+        <label>How should parenting time be calculated?</label>
+        <p class="field-hint">"Log both parents": totals come only from what you enter for each parent. "Log one parent only": you enter just one parent's visits, and the app automatically gives whatever isn't logged to the other parent — useful if one parent has the kids by default whenever the other doesn't.</p>
+        <div class="segmented" data-name="parentingCalcMode" style="margin-top:8px;">
+          <button type="button" class="segmented-option ${settings.parentingCalcMode !== "remainder" ? "is-active" : ""}" data-value="explicit">Log both parents</button>
+          <button type="button" class="segmented-option ${settings.parentingCalcMode === "remainder" ? "is-active" : ""}" data-value="remainder">Log one parent only</button>
+        </div>
+        <input type="hidden" name="parentingCalcMode" value="${settings.parentingCalcMode}">
+      </div>
+
+      <div class="field" id="remainder-parent-field" style="display:${settings.parentingCalcMode === "remainder" ? "flex" : "none"};">
+        <label>Which parent gets the automatic remainder?</label>
+        <p class="field-hint">Pick the parent you do NOT log entries for — their time will be calculated as whatever is left over from the other parent's logged visits.</p>
+        <div class="segmented" data-name="remainderParent" style="margin-top:8px;">
+          <button type="button" class="segmented-option ${settings.remainderParent !== "Dad" ? "is-active" : ""}" data-value="Mom">Mom</button>
+          <button type="button" class="segmented-option ${settings.remainderParent === "Dad" ? "is-active" : ""}" data-value="Dad">Dad</button>
+        </div>
+        <input type="hidden" name="remainderParent" value="${settings.remainderParent}">
+      </div>
+
       <div class="form-actions">
         <button type="submit" class="btn-primary">Save Settings</button>
       </div>
@@ -2609,8 +2652,10 @@ async function submitSettingsForm(form) {
   const overnightStart = fd.get("overnightStart");
   const overnightEnd = fd.get("overnightEnd");
   if (overnightStart === overnightEnd) { showToast("Start and end time must differ"); return; }
+  const parentingCalcMode = fd.get("parentingCalcMode") === "remainder" ? "remainder" : "explicit";
+  const remainderParent = fd.get("remainderParent") === "Dad" ? "Dad" : "Mom";
   const existing = await loadSettings();
-  const s = Object.assign({}, existing, { key: "settings", overnightStart, overnightEnd });
+  const s = Object.assign({}, existing, { key: "settings", overnightStart, overnightEnd, parentingCalcMode, remainderParent });
   await dbPut("settings", s);
   cachedSettings = s;
   showToast("Settings saved");
@@ -2786,6 +2831,10 @@ async function onAppClick(e) {
     if (wrap.dataset.name === "gotHurt") {
       const detailField = document.getElementById("dr-accident-detail-field");
       if (detailField) detailField.style.display = seg.dataset.value === "true" ? "flex" : "none";
+    }
+    if (wrap.dataset.name === "parentingCalcMode") {
+      const remainderField = document.getElementById("remainder-parent-field");
+      if (remainderField) remainderField.style.display = seg.dataset.value === "remainder" ? "flex" : "none";
     }
     return;
   }
