@@ -27,6 +27,7 @@
   --color-camper: #1098ad;
   --color-shop: #f59f00;
   --color-courtdocs: #ae3ec9;
+  --color-call: #4263eb;
   --radius: 14px;
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -616,10 +617,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    My Divorce App
    Single-file mobile-first log tracker. Data lives entirely in this
    browser's IndexedDB (local to the device). Implements:
-     - Incident Log, Finance Log, At Camper Log, At Shop Log,
+     - Incident Log, Finance Log, At Camper Log, At Shop Log, Call Log,
        Court Docs Filed Log (with optional photo/PDF attachments),
-       and Parenting Time Log (automatic hours/%/overnight calculations)
-     - A Logs hub (#/logs) since six logs won't fit a mobile tab bar
+       and Parenting Time Log (automatic hours/%/overnight calculations;
+       calls are tracked separately since they don't count as parenting time)
+     - A Logs hub (#/logs) since seven logs won't fit a mobile tab bar
      - Day View (#/day/:date) and Calendar View (#/calendar/:year-month)
      - Search + date-range filtering within each log
      - Export: PDF report (jsPDF, vendored below), CSV (combined or
@@ -635,7 +637,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 /* ---------------------------- DB layer ---------------------------- */
 
 const DB_NAME = "myDivorceAppDB";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 let db;
 
 function openDatabase() {
@@ -666,6 +668,10 @@ function openDatabase() {
       if (!_db.objectStoreNames.contains("courtdocs")) {
         const s = _db.createObjectStore("courtdocs", { keyPath: "id", autoIncrement: true });
         s.createIndex("dateFiled", "dateFiled");
+      }
+      if (!_db.objectStoreNames.contains("calls")) {
+        const s = _db.createObjectStore("calls", { keyPath: "id", autoIncrement: true });
+        s.createIndex("date", "date");
       }
       if (!_db.objectStoreNames.contains("settings")) {
         _db.createObjectStore("settings", { keyPath: "key" });
@@ -753,7 +759,8 @@ const FIELD_LABELS = {
   date: "Date", time: "Time", kidsPresent: "Kids present", description: "Description",
   startDate: "Start date", startTime: "Start time", endDate: "End date", endTime: "End time", parent: "Parent",
   amountPaid: "Amount paid", amountSupport: "Support payment amount",
-  dateFiled: "Date filed", documentName: "Document name", attachments: "Attachments"
+  dateFiled: "Date filed", documentName: "Document name", attachments: "Attachments",
+  durationMinutes: "Duration (minutes)"
 };
 function fieldLabel(f) { return FIELD_LABELS[f] || f; }
 function fmtVal(f, v) {
@@ -846,7 +853,8 @@ let logFilters = {
   finance: { from: null, to: null, showDeleted: false, q: null },
   camper: { from: null, to: null, showDeleted: false },
   shop: { from: null, to: null, showDeleted: false },
-  courtdocs: { from: null, to: null, showDeleted: false, q: null }
+  courtdocs: { from: null, to: null, showDeleted: false, q: null },
+  calls: { from: null, to: null, showDeleted: false }
 };
 
 function incidentInRange(e, filter) {
@@ -1112,6 +1120,7 @@ const ICON_FINANCE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 const ICON_CAMPER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 const ICON_SHOP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>';
 const ICON_DOCS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+const ICON_CALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
 
 const LOG_CONFIG = [
   { store: "incidents", route: "incidents", label: "Incident Log", color: "var(--color-incidents)", icon: ICON_INCIDENTS },
@@ -1119,9 +1128,10 @@ const LOG_CONFIG = [
   { store: "finance", route: "finance", label: "Finance Log", color: "var(--color-finance)", icon: ICON_FINANCE },
   { store: "camper", route: "camper", label: "At Camper Log", color: "var(--color-camper)", icon: ICON_CAMPER },
   { store: "shop", route: "shop", label: "At Shop Log", color: "var(--color-shop)", icon: ICON_SHOP },
-  { store: "courtdocs", route: "courtdocs", label: "Court Docs Filed", color: "var(--color-courtdocs)", icon: ICON_DOCS }
+  { store: "courtdocs", route: "courtdocs", label: "Court Docs Filed", color: "var(--color-courtdocs)", icon: ICON_DOCS },
+  { store: "calls", route: "calls", label: "Call Log", color: "var(--color-call)", icon: ICON_CALL }
 ];
-const LOG_ROUTES = new Set(["logs", "incidents", "parenting", "finance", "camper", "shop", "courtdocs"]);
+const LOG_ROUTES = new Set(["logs", "incidents", "parenting", "finance", "camper", "shop", "courtdocs", "calls"]);
 
 function logHubCardHtml(cfg, count) {
   return `
@@ -1153,7 +1163,8 @@ const LOG_COLOR_MAP = {
   finance: "var(--color-finance)",
   camper: "var(--color-camper)",
   shop: "var(--color-shop)",
-  courtdocs: "var(--color-courtdocs)"
+  courtdocs: "var(--color-courtdocs)",
+  calls: "var(--color-call)"
 };
 
 function toDateStr(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -1182,9 +1193,9 @@ async function renderDayView(dateStr) {
   const settings = await loadSettings();
   const { start, end } = dayRangeFor(dateStr);
 
-  const [incidents, parenting, finance, camper, shop, courtdocs] = await Promise.all([
+  const [incidents, parenting, finance, camper, shop, courtdocs, calls] = await Promise.all([
     dbGetAll("incidents"), dbGetAll("parentingTime"), dbGetAll("finance"),
-    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs")
+    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls")
   ]);
 
   const dayIncidents = incidents.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
@@ -1192,6 +1203,7 @@ async function renderDayView(dateStr) {
   const dayCamper = camper.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
   const dayShop = shop.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
   const dayCourtdocs = courtdocs.filter((e) => !e.deleted && e.dateFiled === dateStr);
+  const dayCalls = calls.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
   const activeParenting = parenting.filter((e) => !e.deleted);
   const dayParenting = activeParenting.filter((e) => {
     const s = parseDT(e.startDate, e.startTime), en = parseDT(e.endDate, e.endTime);
@@ -1199,7 +1211,7 @@ async function renderDayView(dateStr) {
   }).sort((a, b) => (a.startDate + a.startTime).localeCompare(b.startDate + b.startTime));
 
   const summary = computeSummary(activeParenting, settings, start, end);
-  const otherCount = dayIncidents.length + dayFinance.length + dayCamper.length + dayShop.length + dayCourtdocs.length;
+  const otherCount = dayIncidents.length + dayFinance.length + dayCamper.length + dayShop.length + dayCourtdocs.length + dayCalls.length;
 
   const camperRow = (e) => `<div class="card" data-action="nav" data-href="#/camper/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
   const shopRow = (e) => `<div class="card" data-action="nav" data-href="#/shop/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
@@ -1228,6 +1240,7 @@ async function renderDayView(dateStr) {
     ${daySectionHtml("At Camper Log", "var(--color-camper)", dayCamper, camperRow)}
     ${daySectionHtml("At Shop Log", "var(--color-shop)", dayShop, shopRow)}
     ${daySectionHtml("Court Docs Filed", "var(--color-courtdocs)", dayCourtdocs, courtDocsRowHtml)}
+    ${daySectionHtml("Call Log", "var(--color-call)", dayCalls, callRowHtml)}
 
     ${otherCount === 0 && dayParenting.length === 0 ? `<div class="empty-state"><p>Nothing logged for this date.</p></div>` : ""}
   </div>`;
@@ -1236,9 +1249,9 @@ async function renderDayView(dateStr) {
 /* ---------------------------- Calendar View ---------------------------- */
 
 async function computeCalendarDots() {
-  const [incidents, parenting, finance, camper, shop, courtdocs] = await Promise.all([
+  const [incidents, parenting, finance, camper, shop, courtdocs, calls] = await Promise.all([
     dbGetAll("incidents"), dbGetAll("parentingTime"), dbGetAll("finance"),
-    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs")
+    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls")
   ]);
   const dots = {};
   function mark(dateStr, key) {
@@ -1250,6 +1263,7 @@ async function computeCalendarDots() {
   camper.filter((e) => !e.deleted).forEach((e) => mark(e.date, "camper"));
   shop.filter((e) => !e.deleted).forEach((e) => mark(e.date, "shop"));
   courtdocs.filter((e) => !e.deleted).forEach((e) => mark(e.dateFiled, "courtdocs"));
+  calls.filter((e) => !e.deleted).forEach((e) => mark(e.date, "calls"));
   parenting.filter((e) => !e.deleted).forEach((e) => {
     let d = parseDT(e.startDate, "00:00");
     const endD = parseDT(e.endDate, "00:00");
@@ -1516,6 +1530,89 @@ function makeTimestampLog(storeName, routePrefix, label) {
 const camperLog = makeTimestampLog("camper", "camper", "At Camper Log");
 const shopLog = makeTimestampLog("shop", "shop", "At Shop Log");
 
+/* ---------------------------- Call Log ---------------------------- */
+/* Since a call isn't parenting time, it's tracked separately: date, time, and call duration. */
+
+function callRowHtml(e) {
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/calls/edit/${e.id}">
+    <div class="card-row">
+      <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+    </div>
+    <p class="card-meta">${e.durationMinutes} min call</p>
+  </div>`;
+}
+
+async function renderCallsList() {
+  const filter = logFilters.calls;
+  const all = await dbGetAll("calls");
+  const filtered = all.filter((e) => dateInRange(e, filter, "date")).filter((e) => filter.showDeleted ? true : !e.deleted);
+  filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  const rows = filtered.map(callRowHtml).join("") || `<div class="empty-state"><p>No calls logged in this range.</p></div>`;
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>Call Log</h1></header>
+    ${filterBarHtml("calls", filter)}
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/calls/new" aria-label="Add call">+</button>`;
+}
+
+async function renderCallForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("calls", id);
+  const isEdit = !!entry;
+  const date = (entry && entry.date) || todayISO();
+  const time = (entry && entry.time) || nowTimeHHMM();
+  const durationMinutes = entry ? entry.durationMinutes : "";
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/calls" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Call</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="calls" data-id="${entry ? entry.id : ""}" class="form">
+      <div class="field"><label for="call-date">Date</label><input id="call-date" name="date" type="date" value="${date}" required></div>
+      <div class="field"><label for="call-time">Time</label><input id="call-time" name="time" type="time" value="${time}" required></div>
+      <div class="field"><label for="call-duration">Duration (minutes)</label><input id="call-duration" name="durationMinutes" type="number" inputmode="decimal" step="any" min="0" placeholder="0" value="${durationMinutes}" required></div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="calls" data-route="calls" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitCallForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const newData = {
+    date: fd.get("date"),
+    time: fd.get("time"),
+    durationMinutes: Math.max(0, parseFloat(fd.get("durationMinutes")) || 0)
+  };
+  if (!newData.date || !newData.time) { showToast("Please fill in all fields"); return; }
+  const now = nowISO();
+  if (id) {
+    const existing = await dbGet("calls", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, ["date", "time", "durationMinutes"]);
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.updatedAt = now;
+    await dbPut("calls", existing);
+  } else {
+    const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("calls", entry);
+  }
+  showToast("Saved");
+  location.hash = "#/calls";
+}
+
 /* ---------------------------- Court Docs Filed Log ---------------------------- */
 
 let courtDocsPendingAttachments = [];
@@ -1671,7 +1768,7 @@ async function submitCourtDocsForm(form) {
 
 let exportState = {
   preset: "month", customFrom: null, customTo: null,
-  logs: { incidents: true, parentingTime: true, finance: true, camper: true, shop: true, courtdocs: true }
+  logs: { incidents: true, parentingTime: true, finance: true, camper: true, shop: true, courtdocs: true, calls: true }
 };
 let lastExportFiles = null;
 
@@ -1704,6 +1801,7 @@ function formatEntryDetails(logKey, e, settings) {
     const n = (e.attachments || []).length;
     return `${e.documentName}${n ? ` (${n} attachment${n > 1 ? "s" : ""})` : ""}`;
   }
+  if (logKey === "calls") return `Phone call, ${e.durationMinutes} min`;
   return "";
 }
 
@@ -1853,6 +1951,9 @@ function buildLogCsvRows(key, entries, settings) {
   if (key === "courtdocs") {
     return { headers: ["Date Filed", "Document Name", "Attachment Count", "Created At"], rows: entries.map((e) => [e.dateFiled, e.documentName, (e.attachments || []).length, fmtTimestamp(e.createdAt)]) };
   }
+  if (key === "calls") {
+    return { headers: ["Date", "Time", "Duration (Minutes)", "Created At"], rows: entries.map((e) => [e.date, e.time, e.durationMinutes, fmtTimestamp(e.createdAt)]) };
+  }
   return { headers: [], rows: [] };
 }
 
@@ -1908,6 +2009,9 @@ async function importCsvForLog(logKey, file) {
     } else if (logKey === "courtdocs") {
       if (!get("Date Filed") || !get("Document Name")) continue;
       rec = { dateFiled: get("Date Filed"), documentName: get("Document Name"), attachments: [] };
+    } else if (logKey === "calls") {
+      if (!get("Date") || !get("Time")) continue;
+      rec = { date: get("Date"), time: get("Time"), durationMinutes: parseFloat(get("Duration (Minutes)")) || 0 };
     }
     if (!rec) continue;
     const createdAtRaw = get("Created At");
@@ -2164,12 +2268,12 @@ function deserializeCourtDocsFromImport(entries) {
 }
 
 async function exportData() {
-  const [incidents, parentingTime, finance, camper, shop, courtdocsRaw, settings] = await Promise.all([
+  const [incidents, parentingTime, finance, camper, shop, courtdocsRaw, calls, settings] = await Promise.all([
     dbGetAll("incidents"), dbGetAll("parentingTime"), dbGetAll("finance"),
-    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), loadSettings()
+    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls"), loadSettings()
   ]);
   const courtdocs = await serializeCourtDocsForExport(courtdocsRaw);
-  const payload = { exportedAt: nowISO(), version: 2, incidents, parentingTime, finance, camper, shop, courtdocs, settings };
+  const payload = { exportedAt: nowISO(), version: 3, incidents, parentingTime, finance, camper, shop, courtdocs, calls, settings };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -2268,6 +2372,10 @@ async function render() {
       if (parts[1] === "new") { app.innerHTML = await renderCourtDocsForm(); renderAttachmentChips(); }
       else if (parts[1] === "edit") { app.innerHTML = await renderCourtDocsForm(Number(parts[2])); renderAttachmentChips(); }
       else app.innerHTML = await renderCourtDocsList();
+    } else if (root === "calls") {
+      if (parts[1] === "new") app.innerHTML = await renderCallForm();
+      else if (parts[1] === "edit") app.innerHTML = await renderCallForm(Number(parts[2]));
+      else app.innerHTML = await renderCallsList();
     } else if (root === "summary") {
       app.innerHTML = await renderSummary();
     } else if (root === "settings") {
@@ -2477,6 +2585,7 @@ async function onAppChange(e) {
         for (const c of payload.camper || []) await dbPut("camper", c);
         for (const s of payload.shop || []) await dbPut("shop", s);
         for (const cd of deserializeCourtDocsFromImport(payload.courtdocs)) await dbPut("courtdocs", cd);
+        for (const c of payload.calls || []) await dbPut("calls", c);
         if (payload.settings) { const s = Object.assign({}, payload.settings, { key: "settings" }); await dbPut("settings", s); cachedSettings = s; }
         showToast("Backup imported");
         render();
@@ -2524,6 +2633,7 @@ async function onAppSubmit(e) {
   if (type === "camper") return camperLog.submitForm(form);
   if (type === "shop") return shopLog.submitForm(form);
   if (type === "courtdocs") return submitCourtDocsForm(form);
+  if (type === "calls") return submitCallForm(form);
   if (type === "settings") return submitSettingsForm(form);
 }
 
