@@ -871,11 +871,44 @@ function getPresetRange(preset, customFrom, customTo) {
   return { start, end };
 }
 
+const BREAKDOWN_MONTHS = { month: 1, "6months": 6, "12months": 12 };
+
+function bucketLabel(cursor, granularity) {
+  if (granularity === "month") return cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  if (granularity === "6months") return (cursor.getMonth() === 0 ? "Jan–Jun " : "Jul–Dec ") + cursor.getFullYear();
+  return String(cursor.getFullYear());
+}
+
+function generateBuckets(start, end, granularity) {
+  const step = BREAKDOWN_MONTHS[granularity] || 1;
+  let cursor;
+  if (granularity === "6months") cursor = new Date(start.getFullYear(), start.getMonth() < 6 ? 0 : 6, 1);
+  else if (granularity === "12months") cursor = new Date(start.getFullYear(), 0, 1);
+  else cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const buckets = [];
+  while (cursor.getTime() < end.getTime()) {
+    const bucketEnd = new Date(cursor.getFullYear(), cursor.getMonth() + step, 1);
+    const effStart = new Date(Math.max(cursor.getTime(), start.getTime()));
+    const effEnd = new Date(Math.min(bucketEnd.getTime(), end.getTime()));
+    buckets.push({ label: bucketLabel(cursor, granularity), start: effStart, end: effEnd });
+    cursor = bucketEnd;
+  }
+  return buckets;
+}
+
+function breakdownValueText(hours, totalHours, metric) {
+  const pct = totalHours > 0 ? (hours / totalHours) * 100 : 0;
+  if (metric === "hours") return hours.toFixed(1) + "h";
+  if (metric === "percent") return pct.toFixed(0) + "%";
+  return hours.toFixed(1) + "h (" + pct.toFixed(0) + "%)";
+}
+
 /* ---------------------------- Filter / view state ---------------------------- */
 
 let incidentFilter = { from: null, to: null, showDeleted: false, q: null };
 let parentingFilter = { from: null, to: null, showDeleted: false };
 let summaryState = { preset: "month", customFrom: null, customTo: null };
+let breakdownState = { granularity: "month", metric: "both" };
 let logFilters = {
   finance: { from: null, to: null, showDeleted: false, q: null },
   camper: { from: null, to: null, showDeleted: false },
@@ -2478,6 +2511,28 @@ async function renderSummary() {
       ${barRowHtml("Mom", result.Mom.overnights, Math.max(result.Mom.overnights, result.Dad.overnights, 1), "mom", "")}
       ${barRowHtml("Dad", result.Dad.overnights, Math.max(result.Mom.overnights, result.Dad.overnights, 1), "dad", "")}
     </div>
+
+    <div class="summary-card">
+      <h2>Breakdown by Period</h2>
+      <p class="field-hint">Slices the range selected above (${fmtRangeCaption(start, end)}) into periods.</p>
+      <div class="preset-tabs" style="margin-top:10px;">
+        ${["month", "6months", "12months"].map((g) => `<button type="button" class="preset-tab ${breakdownState.granularity === g ? "is-active" : ""}" data-action="set-breakdown-granularity" data-granularity="${g}">${{ month: "Monthly", "6months": "Every 6 Months", "12months": "Every 12 Months" }[g]}</button>`).join("")}
+      </div>
+      <div class="preset-tabs" style="margin-top:8px;">
+        ${["hours", "percent", "both"].map((m) => `<button type="button" class="preset-tab ${breakdownState.metric === m ? "is-active" : ""}" data-action="set-breakdown-metric" data-metric="${m}">${{ hours: "Hours", percent: "Percent", both: "Both" }[m]}</button>`).join("")}
+      </div>
+      <div style="margin-top:14px;">
+        ${generateBuckets(start, end, breakdownState.granularity).map((b) => {
+          const r = computeSummary(all, settings, b.start, b.end);
+          const total = r.Mom.hours + r.Dad.hours;
+          return `
+          <div class="finance-month-row">
+            <span class="month-label">${b.label}</span>
+            <span class="month-amounts">Mom ${breakdownValueText(r.Mom.hours, total, breakdownState.metric)} · Dad ${breakdownValueText(r.Dad.hours, total, breakdownState.metric)}</span>
+          </div>`;
+        }).join("") || `<p class="field-hint">No periods in this range.</p>`}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -2745,6 +2800,8 @@ async function onAppClick(e) {
   if (action === "nav") { location.hash = actionEl.dataset.href; return; }
 
   if (action === "set-summary-preset") { summaryState.preset = actionEl.dataset.preset; render(); return; }
+  if (action === "set-breakdown-granularity") { breakdownState.granularity = actionEl.dataset.granularity; render(); return; }
+  if (action === "set-breakdown-metric") { breakdownState.metric = actionEl.dataset.metric; render(); return; }
 
   if (action === "clear-filter") {
     const obj = getFilterObj(actionEl.dataset.prefix);
