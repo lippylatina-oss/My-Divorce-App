@@ -871,6 +871,13 @@ function getPresetRange(preset, customFrom, customTo) {
   return { start, end };
 }
 
+function rangeFromFilter(filter) {
+  const now = new Date();
+  const start = filter.from ? parseDT(filter.from, "00:00") : new Date(now.getFullYear(), 0, 1);
+  const end = filter.to ? (() => { const d = parseDT(filter.to, "00:00"); d.setDate(d.getDate() + 1); return d; })() : new Date(now.getFullYear() + 1, 0, 1);
+  return { start, end };
+}
+
 const BREAKDOWN_MONTHS = { month: 1, "6months": 6, "12months": 12 };
 
 function bucketLabel(cursor, granularity) {
@@ -901,6 +908,31 @@ function breakdownValueText(hours, totalHours, metric) {
   if (metric === "hours") return hours.toFixed(1) + "h";
   if (metric === "percent") return pct.toFixed(0) + "%";
   return hours.toFixed(1) + "h (" + pct.toFixed(0) + "%)";
+}
+
+function breakdownCardHtml(entries, settings, start, end) {
+  return `
+  <div class="summary-card">
+    <h2>Breakdown by Period</h2>
+    <p class="field-hint">Slices this range (${fmtRangeCaption(start, end)}) into periods.</p>
+    <div class="preset-tabs" style="margin-top:10px;">
+      ${["month", "6months", "12months"].map((g) => `<button type="button" class="preset-tab ${breakdownState.granularity === g ? "is-active" : ""}" data-action="set-breakdown-granularity" data-granularity="${g}">${{ month: "Monthly", "6months": "Every 6 Months", "12months": "Every 12 Months" }[g]}</button>`).join("")}
+    </div>
+    <div class="preset-tabs" style="margin-top:8px;">
+      ${["hours", "percent", "both"].map((m) => `<button type="button" class="preset-tab ${breakdownState.metric === m ? "is-active" : ""}" data-action="set-breakdown-metric" data-metric="${m}">${{ hours: "Hours", percent: "Percent", both: "Both" }[m]}</button>`).join("")}
+    </div>
+    <div style="margin-top:14px;">
+      ${generateBuckets(start, end, breakdownState.granularity).map((b) => {
+        const r = computeSummary(entries, settings, b.start, b.end);
+        const total = r.Mom.hours + r.Dad.hours;
+        return `
+        <div class="finance-month-row">
+          <span class="month-label">${b.label}</span>
+          <span class="month-amounts">Mom ${breakdownValueText(r.Mom.hours, total, breakdownState.metric)} · Dad ${breakdownValueText(r.Dad.hours, total, breakdownState.metric)}</span>
+        </div>`;
+      }).join("") || `<p class="field-hint">No periods in this range.</p>`}
+    </div>
+  </div>`;
 }
 
 /* ---------------------------- Filter / view state ---------------------------- */
@@ -1092,10 +1124,12 @@ async function renderParentingList() {
   const filtered = all.filter((e) => parentingInRange(e, parentingFilter)).filter((e) => parentingFilter.showDeleted ? true : !e.deleted);
   filtered.sort((a, b) => (b.startDate + b.startTime).localeCompare(a.startDate + a.startTime));
   const rows = filtered.map((e) => parentingRowHtml(e, settings)).join("") || `<div class="empty-state"><p>No parenting time logged in this range.</p></div>`;
+  const bdRange = rangeFromFilter(parentingFilter);
   return `
   <div class="screen">
     <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>Parenting Time</h1></header>
     ${filterBarHtml("parenting", parentingFilter)}
+    ${breakdownCardHtml(all, settings, bdRange.start, bdRange.end)}
     <div class="list">${rows}</div>
   </div>
   <button class="fab" data-action="nav" data-href="#/parenting/new" aria-label="Add parenting time">+</button>`;
@@ -2512,27 +2546,7 @@ async function renderSummary() {
       ${barRowHtml("Dad", result.Dad.overnights, Math.max(result.Mom.overnights, result.Dad.overnights, 1), "dad", "")}
     </div>
 
-    <div class="summary-card">
-      <h2>Breakdown by Period</h2>
-      <p class="field-hint">Slices the range selected above (${fmtRangeCaption(start, end)}) into periods.</p>
-      <div class="preset-tabs" style="margin-top:10px;">
-        ${["month", "6months", "12months"].map((g) => `<button type="button" class="preset-tab ${breakdownState.granularity === g ? "is-active" : ""}" data-action="set-breakdown-granularity" data-granularity="${g}">${{ month: "Monthly", "6months": "Every 6 Months", "12months": "Every 12 Months" }[g]}</button>`).join("")}
-      </div>
-      <div class="preset-tabs" style="margin-top:8px;">
-        ${["hours", "percent", "both"].map((m) => `<button type="button" class="preset-tab ${breakdownState.metric === m ? "is-active" : ""}" data-action="set-breakdown-metric" data-metric="${m}">${{ hours: "Hours", percent: "Percent", both: "Both" }[m]}</button>`).join("")}
-      </div>
-      <div style="margin-top:14px;">
-        ${generateBuckets(start, end, breakdownState.granularity).map((b) => {
-          const r = computeSummary(all, settings, b.start, b.end);
-          const total = r.Mom.hours + r.Dad.hours;
-          return `
-          <div class="finance-month-row">
-            <span class="month-label">${b.label}</span>
-            <span class="month-amounts">Mom ${breakdownValueText(r.Mom.hours, total, breakdownState.metric)} · Dad ${breakdownValueText(r.Dad.hours, total, breakdownState.metric)}</span>
-          </div>`;
-        }).join("") || `<p class="field-hint">No periods in this range.</p>`}
-      </div>
-    </div>
+    ${breakdownCardHtml(all, settings, start, end)}
   </div>`;
 }
 
