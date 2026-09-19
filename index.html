@@ -28,6 +28,7 @@
   --color-shop: #f59f00;
   --color-courtdocs: #ae3ec9;
   --color-call: #4263eb;
+  --color-dailyreport: #74b816;
   --radius: 14px;
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -106,7 +107,7 @@ a { color: inherit; }
 .time-range-row { display: flex; align-items: center; gap: 10px; }
 .time-range-row input { flex: 1; }
 
-.segmented { display: flex; border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
+.segmented { display: flex; flex-wrap: wrap; border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
 .segmented-option { flex: 1; padding: 12px; background: var(--color-surface); border: none; font-size: 15px; font-weight: 600; color: var(--color-text-secondary); min-height: 48px; cursor: pointer; }
 .segmented-option + .segmented-option { border-left: 1px solid var(--color-border); }
 .segmented-option.is-active { background: var(--color-primary); color: #fff; }
@@ -169,6 +170,14 @@ a { color: inherit; }
 .attachment-file-icon { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 26px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-bg); }
 .attachment-name { font-size: 11px; color: var(--color-text-secondary); text-align: center; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-remove { position: absolute; top: -6px; right: -2px; width: 22px; height: 22px; border-radius: 50%; background: var(--color-danger); color: #fff; border: 2px solid var(--color-surface); font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+
+.field-subtitle { font-size: 15px; font-weight: 700; margin: 4px 0 0; }
+.chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 10px 14px; border-radius: 100px; border: 1px solid var(--color-border); background: var(--color-surface); font-size: 14px; font-weight: 600; color: var(--color-text-secondary); cursor: pointer; min-height: 40px; }
+.chip.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+.chip--removable { display: inline-flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-radius: 100px; background: var(--color-bg); border: 1px solid var(--color-border); font-size: 14px; font-weight: 600; }
+.chip-remove { width: 22px; height: 22px; border-radius: 50%; background: var(--color-danger); color: #fff; border: none; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex: none; }
+.char-count { font-size: 11px; color: var(--color-text-secondary); text-align: right; margin: 2px 0 0; }
 
 .search-input { width: 100%; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; font-size: 15px; background: var(--color-bg); color: var(--color-text); min-height: 44px; }
 .field select, .csv-log-select { padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; font-size: 16px; background: var(--color-bg); color: var(--color-text); width: 100%; min-height: 48px; }
@@ -619,9 +628,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    browser's IndexedDB (local to the device). Implements:
      - Incident Log, Finance Log, At Camper Log, At Shop Log, Call Log,
        Court Docs Filed Log (with optional photo/PDF attachments),
-       and Parenting Time Log (automatic hours/%/overnight calculations;
-       calls are tracked separately since they don't count as parenting time)
-     - A Logs hub (#/logs) since seven logs won't fit a mobile tab bar
+       Daily Report (per-child daily check-in with tap-to-select chips
+       for mood/sleep/eating, modeled on a paper parenting-time worksheet;
+       children are managed once in Settings), and Parenting Time Log
+       (automatic hours/%/overnight calculations; calls and daily reports
+       are tracked separately since neither counts as parenting time)
+     - A Logs hub (#/logs) since eight logs won't fit a mobile tab bar
      - Day View (#/day/:date) and Calendar View (#/calendar/:year-month)
      - Search + date-range filtering within each log
      - Export: PDF report (jsPDF, vendored below), CSV (combined or
@@ -637,7 +649,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 /* ---------------------------- DB layer ---------------------------- */
 
 const DB_NAME = "myDivorceAppDB";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 let db;
 
 function openDatabase() {
@@ -671,6 +683,10 @@ function openDatabase() {
       }
       if (!_db.objectStoreNames.contains("calls")) {
         const s = _db.createObjectStore("calls", { keyPath: "id", autoIncrement: true });
+        s.createIndex("date", "date");
+      }
+      if (!_db.objectStoreNames.contains("dailyReports")) {
+        const s = _db.createObjectStore("dailyReports", { keyPath: "id", autoIncrement: true });
         s.createIndex("date", "date");
       }
       if (!_db.objectStoreNames.contains("settings")) {
@@ -715,9 +731,10 @@ async function loadSettings() {
   if (cachedSettings) return cachedSettings;
   let s = await dbGet("settings", "settings");
   if (!s) {
-    s = { key: "settings", overnightStart: "00:00", overnightEnd: "06:00" };
+    s = { key: "settings", overnightStart: "00:00", overnightEnd: "06:00", children: [] };
     await dbPut("settings", s);
   }
+  if (!s.children) s.children = [];
   cachedSettings = s;
   return s;
 }
@@ -760,13 +777,23 @@ const FIELD_LABELS = {
   startDate: "Start date", startTime: "Start time", endDate: "End date", endTime: "End time", parent: "Parent",
   amountPaid: "Amount paid", amountSupport: "Support payment amount",
   dateFiled: "Date filed", documentName: "Document name", attachments: "Attachments",
-  durationMinutes: "Duration (minutes)"
+  durationMinutes: "Duration (minutes)",
+  child: "Child", specialActivities: "Special/unusual activities", ordinaryActivities: "Ordinary activities",
+  mood: "Mood", moodOther: "Mood (other)",
+  sleep: "Sleep", bedtimeHelp: "Something that helped at bedtime",
+  eating: "Eating", ateWellNote: "Something the child ate well", lastAteTime: "Child last ate at",
+  health: "Health", healthNote: "Problems that were noticed",
+  behaviorLevel: "Behavior", behaviorWorkedWell: "Something that worked well", behaviorNeedsAttention: "Something that needs attention",
+  homeworkCompleted: "Homework items completed", homeworkRemaining: "Homework items remaining", homeworkUpcoming: "Dates or projects coming up",
+  gotHurt: "Did the child get hurt?", accidentDetail: "What happened / what was done",
+  childNeeds: "Something the child might need", talkAbout: "Something we should talk about"
 };
 function fieldLabel(f) { return FIELD_LABELS[f] || f; }
 function fmtVal(f, v) {
   if (v === undefined) return "—";
-  if (f === "kidsPresent") return v ? "Yes" : "No";
+  if (f === "kidsPresent" || f === "gotHurt") return v ? "Yes" : "No";
   if (f === "amountPaid" || f === "amountSupport") return fmtMoney(v);
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "(none)";
   if (v === "") return "(empty)";
   return String(v);
 }
@@ -854,7 +881,8 @@ let logFilters = {
   camper: { from: null, to: null, showDeleted: false },
   shop: { from: null, to: null, showDeleted: false },
   courtdocs: { from: null, to: null, showDeleted: false, q: null },
-  calls: { from: null, to: null, showDeleted: false }
+  calls: { from: null, to: null, showDeleted: false },
+  dailyreports: { from: null, to: null, showDeleted: false, child: null }
 };
 
 function incidentInRange(e, filter) {
@@ -1121,6 +1149,7 @@ const ICON_CAMPER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const ICON_SHOP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>';
 const ICON_DOCS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
 const ICON_CALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+const ICON_REPORT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>';
 
 const LOG_CONFIG = [
   { store: "incidents", route: "incidents", label: "Incident Log", color: "var(--color-incidents)", icon: ICON_INCIDENTS },
@@ -1129,9 +1158,10 @@ const LOG_CONFIG = [
   { store: "camper", route: "camper", label: "At Camper Log", color: "var(--color-camper)", icon: ICON_CAMPER },
   { store: "shop", route: "shop", label: "At Shop Log", color: "var(--color-shop)", icon: ICON_SHOP },
   { store: "courtdocs", route: "courtdocs", label: "Court Docs Filed", color: "var(--color-courtdocs)", icon: ICON_DOCS },
-  { store: "calls", route: "calls", label: "Call Log", color: "var(--color-call)", icon: ICON_CALL }
+  { store: "calls", route: "calls", label: "Call Log", color: "var(--color-call)", icon: ICON_CALL },
+  { store: "dailyReports", route: "dailyreports", label: "Daily Report", color: "var(--color-dailyreport)", icon: ICON_REPORT }
 ];
-const LOG_ROUTES = new Set(["logs", "incidents", "parenting", "finance", "camper", "shop", "courtdocs", "calls"]);
+const LOG_ROUTES = new Set(["logs", "incidents", "parenting", "finance", "camper", "shop", "courtdocs", "calls", "dailyreports"]);
 
 function logHubCardHtml(cfg, count) {
   return `
@@ -1164,7 +1194,8 @@ const LOG_COLOR_MAP = {
   camper: "var(--color-camper)",
   shop: "var(--color-shop)",
   courtdocs: "var(--color-courtdocs)",
-  calls: "var(--color-call)"
+  calls: "var(--color-call)",
+  dailyReports: "var(--color-dailyreport)"
 };
 
 function toDateStr(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -1193,9 +1224,9 @@ async function renderDayView(dateStr) {
   const settings = await loadSettings();
   const { start, end } = dayRangeFor(dateStr);
 
-  const [incidents, parenting, finance, camper, shop, courtdocs, calls] = await Promise.all([
+  const [incidents, parenting, finance, camper, shop, courtdocs, calls, dailyReports] = await Promise.all([
     dbGetAll("incidents"), dbGetAll("parentingTime"), dbGetAll("finance"),
-    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls")
+    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls"), dbGetAll("dailyReports")
   ]);
 
   const dayIncidents = incidents.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
@@ -1204,6 +1235,7 @@ async function renderDayView(dateStr) {
   const dayShop = shop.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
   const dayCourtdocs = courtdocs.filter((e) => !e.deleted && e.dateFiled === dateStr);
   const dayCalls = calls.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
+  const dayReports = dailyReports.filter((e) => !e.deleted && e.date === dateStr).sort((a, b) => (a.child || "").localeCompare(b.child || ""));
   const activeParenting = parenting.filter((e) => !e.deleted);
   const dayParenting = activeParenting.filter((e) => {
     const s = parseDT(e.startDate, e.startTime), en = parseDT(e.endDate, e.endTime);
@@ -1211,7 +1243,7 @@ async function renderDayView(dateStr) {
   }).sort((a, b) => (a.startDate + a.startTime).localeCompare(b.startDate + b.startTime));
 
   const summary = computeSummary(activeParenting, settings, start, end);
-  const otherCount = dayIncidents.length + dayFinance.length + dayCamper.length + dayShop.length + dayCourtdocs.length + dayCalls.length;
+  const otherCount = dayIncidents.length + dayFinance.length + dayCamper.length + dayShop.length + dayCourtdocs.length + dayCalls.length + dayReports.length;
 
   const camperRow = (e) => `<div class="card" data-action="nav" data-href="#/camper/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
   const shopRow = (e) => `<div class="card" data-action="nav" data-href="#/shop/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
@@ -1241,6 +1273,7 @@ async function renderDayView(dateStr) {
     ${daySectionHtml("At Shop Log", "var(--color-shop)", dayShop, shopRow)}
     ${daySectionHtml("Court Docs Filed", "var(--color-courtdocs)", dayCourtdocs, courtDocsRowHtml)}
     ${daySectionHtml("Call Log", "var(--color-call)", dayCalls, callRowHtml)}
+    ${daySectionHtml("Daily Report", "var(--color-dailyreport)", dayReports, dailyReportRowHtml)}
 
     ${otherCount === 0 && dayParenting.length === 0 ? `<div class="empty-state"><p>Nothing logged for this date.</p></div>` : ""}
   </div>`;
@@ -1249,9 +1282,9 @@ async function renderDayView(dateStr) {
 /* ---------------------------- Calendar View ---------------------------- */
 
 async function computeCalendarDots() {
-  const [incidents, parenting, finance, camper, shop, courtdocs, calls] = await Promise.all([
+  const [incidents, parenting, finance, camper, shop, courtdocs, calls, dailyReports] = await Promise.all([
     dbGetAll("incidents"), dbGetAll("parentingTime"), dbGetAll("finance"),
-    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls")
+    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls"), dbGetAll("dailyReports")
   ]);
   const dots = {};
   function mark(dateStr, key) {
@@ -1264,6 +1297,7 @@ async function computeCalendarDots() {
   shop.filter((e) => !e.deleted).forEach((e) => mark(e.date, "shop"));
   courtdocs.filter((e) => !e.deleted).forEach((e) => mark(e.dateFiled, "courtdocs"));
   calls.filter((e) => !e.deleted).forEach((e) => mark(e.date, "calls"));
+  dailyReports.filter((e) => !e.deleted).forEach((e) => mark(e.date, "dailyReports"));
   parenting.filter((e) => !e.deleted).forEach((e) => {
     let d = parseDT(e.startDate, "00:00");
     const endD = parseDT(e.endDate, "00:00");
@@ -1764,11 +1798,227 @@ async function submitCourtDocsForm(form) {
   location.hash = "#/courtdocs";
 }
 
+/* ---------------------------- Daily Report Log ---------------------------- */
+/* Per-child daily check-in, modeled on the "Reporting Form for Parenting Time" worksheet. */
+
+const MOOD_OPTIONS = ["Happy", "Relaxed", "Very active", "Excited", "Quiet, tired", "Sad or depressed", "Grumpy", "Worried or nervous", "Off on his or her own", "Clingy, demanding"];
+const SLEEP_OPTIONS = ["Slept well", "Slept too much", "Couldn't sleep", "Struggled at bedtime"];
+const EATING_OPTIONS = ["Ate well", "Always hungry", "Wouldn't eat", "New foods"];
+const HEALTH_OPTIONS = ["Seems healthy", "Got sick"];
+const BEHAVIOR_OPTIONS = ["No problems", "A few problems", "Lots of problems"];
+
+function chipGroupHtml(name, options, selected, multi) {
+  const sel = selected || [];
+  const chips = options.map((opt) => `<button type="button" class="chip ${sel.indexOf(opt) !== -1 ? "is-active" : ""}" data-value="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`).join("");
+  return `<div class="chip-group" data-name="${name}" data-multi="${multi ? "true" : "false"}">${chips}</div><input type="hidden" name="${name}" value="${escapeHtml(sel.join("|"))}">`;
+}
+
+function noteFieldHtml(id, name, label, value) {
+  return `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${name}" type="text" maxlength="100" value="${escapeHtml(value || "")}"></div>`;
+}
+
+function dailyReportRowHtml(e) {
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/dailyreports/edit/${e.id}">
+    <div class="card-row">
+      <span class="card-date">${fmtDate(e.date)}</span>
+      <span class="badge badge-overnight">${escapeHtml(e.child)}</span>
+      ${e.gotHurt ? '<span class="badge badge-deleted">Accident</span>' : ""}
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+    </div>
+    <p class="card-meta">${(e.mood && e.mood.length) ? escapeHtml(e.mood.slice(0, 3).join(", ")) : "No mood noted"}</p>
+  </div>`;
+}
+
+async function renderDailyReportsList() {
+  const filter = logFilters.dailyreports;
+  const settings = await loadSettings();
+  const all = await dbGetAll("dailyReports");
+  const filtered = all
+    .filter((e) => dateInRange(e, filter, "date"))
+    .filter((e) => filter.showDeleted ? true : !e.deleted)
+    .filter((e) => !filter.child || e.child === filter.child);
+  filtered.sort((a, b) => (b.date + (b.child || "")).localeCompare(a.date + (a.child || "")));
+  const rows = filtered.map(dailyReportRowHtml).join("") || `<div class="empty-state"><p>No daily reports in this range.</p></div>`;
+  const childOptions = settings.children.map((c) => `<option value="${escapeHtml(c)}" ${filter.child === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>Daily Report</h1></header>
+    <div class="filter-bar">
+      ${settings.children.length ? `
+      <div class="filter-row">
+        <select class="csv-log-select" data-filter="dailyreports:child">
+          <option value="">All children</option>
+          ${childOptions}
+        </select>
+      </div>` : ""}
+      <div class="filter-row">
+        <label class="filter-field"><span>From</span><input type="date" data-filter="dailyreports:from" value="${filter.from || ""}"></label>
+        <label class="filter-field"><span>To</span><input type="date" data-filter="dailyreports:to" value="${filter.to || ""}"></label>
+      </div>
+      <div class="filter-row filter-row--actions">
+        <label class="checkbox-field"><input type="checkbox" data-filter="dailyreports:showDeleted" ${filter.showDeleted ? "checked" : ""}><span>Show deleted</span></label>
+        <button type="button" class="btn-link" data-action="clear-filter" data-prefix="dailyreports">Clear</button>
+      </div>
+    </div>
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/dailyreports/new" aria-label="Add daily report">+</button>`;
+}
+
+async function renderDailyReportForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("dailyReports", id);
+  const isEdit = !!entry;
+  const settings = await loadSettings();
+
+  if (!settings.children.length) {
+    return `
+    <div class="screen">
+      <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/dailyreports" aria-label="Back">←</button><h1>New Daily Report</h1></header>
+      <div class="empty-state">
+        <p>Add at least one child in Settings before creating a Daily Report.</p>
+        <div class="form-actions" style="margin-top:16px;justify-content:center;"><button type="button" class="btn-primary" data-action="nav" data-href="#/settings" style="flex:none;">Go to Settings</button></div>
+      </div>
+    </div>`;
+  }
+
+  const child = (entry && entry.child) || settings.children[0];
+  const date = (entry && entry.date) || todayISO();
+  const gotHurt = entry ? entry.gotHurt : false;
+
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/dailyreports" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Daily Report</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="dailyreport" data-id="${entry ? entry.id : ""}" class="form">
+
+      <div class="field">
+        <label>Child</label>
+        <div class="segmented" data-name="child">
+          ${settings.children.map((c) => `<button type="button" class="segmented-option ${child === c ? "is-active" : ""}" data-value="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
+        </div>
+        <input type="hidden" name="child" value="${escapeHtml(child)}">
+      </div>
+
+      <div class="field"><label for="dr-date">Date</label><input id="dr-date" name="date" type="date" value="${date}" required></div>
+
+      <p class="field-subtitle">Activities</p>
+      ${noteFieldHtml("dr-special-activities", "specialActivities", "Anything special or unusual", entry && entry.specialActivities)}
+      ${noteFieldHtml("dr-ordinary-activities", "ordinaryActivities", "Just ordinary activities", entry && entry.ordinaryActivities)}
+
+      <p class="field-subtitle">Mood (tap all that fit)</p>
+      ${chipGroupHtml("mood", MOOD_OPTIONS, entry && entry.mood, true)}
+      ${noteFieldHtml("dr-mood-other", "moodOther", "Other (describe)", entry && entry.moodOther)}
+
+      <p class="field-subtitle">Sleep</p>
+      ${chipGroupHtml("sleep", SLEEP_OPTIONS, entry && entry.sleep, true)}
+      ${noteFieldHtml("dr-bedtime-help", "bedtimeHelp", "Something that helped at bedtime", entry && entry.bedtimeHelp)}
+
+      <p class="field-subtitle">Eating</p>
+      ${chipGroupHtml("eating", EATING_OPTIONS, entry && entry.eating, true)}
+      ${noteFieldHtml("dr-ate-well", "ateWellNote", "Something the child ate well", entry && entry.ateWellNote)}
+      <div class="field"><label for="dr-last-ate">Child last ate at</label><input id="dr-last-ate" name="lastAteTime" type="time" value="${(entry && entry.lastAteTime) || ""}"></div>
+
+      <p class="field-subtitle">Health</p>
+      ${chipGroupHtml("health", HEALTH_OPTIONS, entry && entry.health ? [entry.health] : [], false)}
+      ${noteFieldHtml("dr-health-note", "healthNote", "Problems that were noticed", entry && entry.healthNote)}
+
+      <p class="field-subtitle">Behavior</p>
+      ${chipGroupHtml("behaviorLevel", BEHAVIOR_OPTIONS, entry && entry.behaviorLevel ? [entry.behaviorLevel] : [], false)}
+      ${noteFieldHtml("dr-behavior-worked", "behaviorWorkedWell", "Something that worked well", entry && entry.behaviorWorkedWell)}
+      ${noteFieldHtml("dr-behavior-attention", "behaviorNeedsAttention", "Something that needs attention", entry && entry.behaviorNeedsAttention)}
+
+      <p class="field-subtitle">Homework</p>
+      ${noteFieldHtml("dr-hw-completed", "homeworkCompleted", "Items completed", entry && entry.homeworkCompleted)}
+      ${noteFieldHtml("dr-hw-remaining", "homeworkRemaining", "Items remaining", entry && entry.homeworkRemaining)}
+      ${noteFieldHtml("dr-hw-upcoming", "homeworkUpcoming", "Dates or projects coming up", entry && entry.homeworkUpcoming)}
+
+      <p class="field-subtitle">Accidents</p>
+      <div class="field">
+        <label>Did the child get hurt?</label>
+        <div class="segmented" data-name="gotHurt">
+          <button type="button" class="segmented-option ${!gotHurt ? "is-active" : ""}" data-value="false">No</button>
+          <button type="button" class="segmented-option ${gotHurt ? "is-active" : ""}" data-value="true">Yes</button>
+        </div>
+        <input type="hidden" name="gotHurt" value="${gotHurt}">
+      </div>
+      <div class="field" id="dr-accident-detail-field" style="display:${gotHurt ? "flex" : "none"};">
+        <label for="dr-accident-detail">What happened / what was done</label>
+        <input id="dr-accident-detail" name="accidentDetail" type="text" maxlength="100" value="${escapeHtml((entry && entry.accidentDetail) || "")}">
+      </div>
+
+      <p class="field-subtitle">Wrap-up</p>
+      ${noteFieldHtml("dr-child-needs", "childNeeds", "Something the child might need", entry && entry.childNeeds)}
+      ${noteFieldHtml("dr-talk-about", "talkAbout", "Something we should talk about", entry && entry.talkAbout)}
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="dailyReports" data-route="dailyreports" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitDailyReportForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const splitMulti = (v) => (v ? v.split("|").filter(Boolean) : []);
+  const newData = {
+    child: fd.get("child") || "",
+    date: fd.get("date"),
+    specialActivities: (fd.get("specialActivities") || "").trim(),
+    ordinaryActivities: (fd.get("ordinaryActivities") || "").trim(),
+    mood: splitMulti(fd.get("mood")),
+    moodOther: (fd.get("moodOther") || "").trim(),
+    sleep: splitMulti(fd.get("sleep")),
+    bedtimeHelp: (fd.get("bedtimeHelp") || "").trim(),
+    eating: splitMulti(fd.get("eating")),
+    ateWellNote: (fd.get("ateWellNote") || "").trim(),
+    lastAteTime: fd.get("lastAteTime") || "",
+    health: fd.get("health") || "",
+    healthNote: (fd.get("healthNote") || "").trim(),
+    behaviorLevel: fd.get("behaviorLevel") || "",
+    behaviorWorkedWell: (fd.get("behaviorWorkedWell") || "").trim(),
+    behaviorNeedsAttention: (fd.get("behaviorNeedsAttention") || "").trim(),
+    homeworkCompleted: (fd.get("homeworkCompleted") || "").trim(),
+    homeworkRemaining: (fd.get("homeworkRemaining") || "").trim(),
+    homeworkUpcoming: (fd.get("homeworkUpcoming") || "").trim(),
+    gotHurt: fd.get("gotHurt") === "true",
+    accidentDetail: (fd.get("accidentDetail") || "").trim(),
+    childNeeds: (fd.get("childNeeds") || "").trim(),
+    talkAbout: (fd.get("talkAbout") || "").trim()
+  };
+  if (!newData.child || !newData.date) { showToast("Please choose a child and date"); return; }
+  if (!newData.gotHurt) newData.accidentDetail = "";
+  const now = nowISO();
+  const fieldsToTrack = ["child", "date", "specialActivities", "ordinaryActivities", "mood", "moodOther", "sleep", "bedtimeHelp", "eating", "ateWellNote", "lastAteTime", "health", "healthNote", "behaviorLevel", "behaviorWorkedWell", "behaviorNeedsAttention", "homeworkCompleted", "homeworkRemaining", "homeworkUpcoming", "gotHurt", "accidentDetail", "childNeeds", "talkAbout"];
+  if (id) {
+    const existing = await dbGet("dailyReports", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, fieldsToTrack);
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.updatedAt = now;
+    await dbPut("dailyReports", existing);
+  } else {
+    const entryRec = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("dailyReports", entryRec);
+  }
+  showToast("Saved");
+  location.hash = "#/dailyreports";
+}
+
 /* ---------------------------- Export / Import (PDF, CSV) ---------------------------- */
 
 let exportState = {
   preset: "month", customFrom: null, customTo: null,
-  logs: { incidents: true, parentingTime: true, finance: true, camper: true, shop: true, courtdocs: true, calls: true }
+  logs: { incidents: true, parentingTime: true, finance: true, camper: true, shop: true, courtdocs: true, calls: true, dailyReports: true }
 };
 let lastExportFiles = null;
 
@@ -1802,6 +2052,12 @@ function formatEntryDetails(logKey, e, settings) {
     return `${e.documentName}${n ? ` (${n} attachment${n > 1 ? "s" : ""})` : ""}`;
   }
   if (logKey === "calls") return `Phone call, ${e.durationMinutes} min`;
+  if (logKey === "dailyReports") {
+    const parts = [`Daily report for ${e.child}`];
+    if (e.mood && e.mood.length) parts.push(`Mood: ${e.mood.join(", ")}`);
+    if (e.gotHurt) parts.push(`Accident: ${e.accidentDetail || "yes"}`);
+    return parts.join(" — ");
+  }
   return "";
 }
 
@@ -1954,6 +2210,20 @@ function buildLogCsvRows(key, entries, settings) {
   if (key === "calls") {
     return { headers: ["Date", "Time", "Duration (Minutes)", "Created At"], rows: entries.map((e) => [e.date, e.time, e.durationMinutes, fmtTimestamp(e.createdAt)]) };
   }
+  if (key === "dailyReports") {
+    return {
+      headers: ["Date", "Child", "Special Activities", "Ordinary Activities", "Mood", "Mood Other", "Sleep", "Bedtime Help", "Eating", "Ate Well Note", "Last Ate", "Health", "Health Note", "Behavior Level", "Behavior Worked Well", "Behavior Needs Attention", "Homework Completed", "Homework Remaining", "Homework Upcoming", "Got Hurt", "Accident Detail", "Child Needs", "Talk About", "Created At"],
+      rows: entries.map((e) => [
+        e.date, e.child, e.specialActivities, e.ordinaryActivities,
+        (e.mood || []).join("; "), e.moodOther, (e.sleep || []).join("; "), e.bedtimeHelp,
+        (e.eating || []).join("; "), e.ateWellNote, e.lastAteTime, e.health, e.healthNote,
+        e.behaviorLevel, e.behaviorWorkedWell, e.behaviorNeedsAttention,
+        e.homeworkCompleted, e.homeworkRemaining, e.homeworkUpcoming,
+        e.gotHurt ? "Yes" : "No", e.accidentDetail, e.childNeeds, e.talkAbout,
+        fmtTimestamp(e.createdAt)
+      ])
+    };
+  }
   return { headers: [], rows: [] };
 }
 
@@ -2012,6 +2282,21 @@ async function importCsvForLog(logKey, file) {
     } else if (logKey === "calls") {
       if (!get("Date") || !get("Time")) continue;
       rec = { date: get("Date"), time: get("Time"), durationMinutes: parseFloat(get("Duration (Minutes)")) || 0 };
+    } else if (logKey === "dailyReports") {
+      if (!get("Date") || !get("Child")) continue;
+      const splitList = (s) => (s ? s.split(";").map((x) => x.trim()).filter(Boolean) : []);
+      rec = {
+        date: get("Date"), child: get("Child"),
+        specialActivities: get("Special Activities"), ordinaryActivities: get("Ordinary Activities"),
+        mood: splitList(get("Mood")), moodOther: get("Mood Other"),
+        sleep: splitList(get("Sleep")), bedtimeHelp: get("Bedtime Help"),
+        eating: splitList(get("Eating")), ateWellNote: get("Ate Well Note"), lastAteTime: get("Last Ate"),
+        health: get("Health"), healthNote: get("Health Note"),
+        behaviorLevel: get("Behavior Level"), behaviorWorkedWell: get("Behavior Worked Well"), behaviorNeedsAttention: get("Behavior Needs Attention"),
+        homeworkCompleted: get("Homework Completed"), homeworkRemaining: get("Homework Remaining"), homeworkUpcoming: get("Homework Upcoming"),
+        gotHurt: /^y/i.test(get("Got Hurt")), accidentDetail: get("Accident Detail"),
+        childNeeds: get("Child Needs"), talkAbout: get("Talk About")
+      };
     }
     if (!rec) continue;
     const createdAtRaw = get("Created At");
@@ -2219,6 +2504,18 @@ async function renderSettings() {
     </form>
 
     <div class="summary-card">
+      <h2>Children</h2>
+      <p class="field-hint">Add each child once here so you can pick them quickly on the Daily Report form.</p>
+      <div class="chip-group" style="margin:12px 0;">
+        ${settings.children.length ? settings.children.map((name) => `<span class="chip--removable">${escapeHtml(name)}<button type="button" class="chip-remove" data-action="remove-child" data-name="${escapeHtml(name)}" aria-label="Remove ${escapeHtml(name)}">×</button></span>`).join("") : `<p class="field-hint">No children added yet.</p>`}
+      </div>
+      <form data-form="add-child" class="form-actions">
+        <div class="field" style="flex:1;"><input type="text" name="childName" placeholder="Child's name" maxlength="40" required></div>
+        <button type="submit" class="btn-primary" style="flex:none;width:auto;padding:0 20px;">Add</button>
+      </form>
+    </div>
+
+    <div class="summary-card">
       <h2>Reports</h2>
       <p class="field-hint">Generate a PDF report or CSV export for a chosen date range and set of logs, share it with your lawyer, or import entries from a CSV file.</p>
       <div class="form-actions" style="margin-top:12px;">
@@ -2243,10 +2540,24 @@ async function submitSettingsForm(form) {
   const overnightStart = fd.get("overnightStart");
   const overnightEnd = fd.get("overnightEnd");
   if (overnightStart === overnightEnd) { showToast("Start and end time must differ"); return; }
-  const s = { key: "settings", overnightStart, overnightEnd };
+  const existing = await loadSettings();
+  const s = Object.assign({}, existing, { key: "settings", overnightStart, overnightEnd });
   await dbPut("settings", s);
   cachedSettings = s;
   showToast("Settings saved");
+  render();
+}
+
+async function submitAddChildForm(form) {
+  const fd = new FormData(form);
+  const name = (fd.get("childName") || "").trim();
+  if (!name) return;
+  const s = await loadSettings();
+  if (s.children.includes(name)) { showToast("That child is already added"); return; }
+  s.children = s.children.concat([name]);
+  await dbPut("settings", s);
+  cachedSettings = s;
+  showToast("Added " + name);
   render();
 }
 
@@ -2268,12 +2579,12 @@ function deserializeCourtDocsFromImport(entries) {
 }
 
 async function exportData() {
-  const [incidents, parentingTime, finance, camper, shop, courtdocsRaw, calls, settings] = await Promise.all([
+  const [incidents, parentingTime, finance, camper, shop, courtdocsRaw, calls, dailyReports, settings] = await Promise.all([
     dbGetAll("incidents"), dbGetAll("parentingTime"), dbGetAll("finance"),
-    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls"), loadSettings()
+    dbGetAll("camper"), dbGetAll("shop"), dbGetAll("courtdocs"), dbGetAll("calls"), dbGetAll("dailyReports"), loadSettings()
   ]);
   const courtdocs = await serializeCourtDocsForExport(courtdocsRaw);
-  const payload = { exportedAt: nowISO(), version: 3, incidents, parentingTime, finance, camper, shop, courtdocs, calls, settings };
+  const payload = { exportedAt: nowISO(), version: 4, incidents, parentingTime, finance, camper, shop, courtdocs, calls, dailyReports, settings };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -2376,6 +2687,10 @@ async function render() {
       if (parts[1] === "new") app.innerHTML = await renderCallForm();
       else if (parts[1] === "edit") app.innerHTML = await renderCallForm(Number(parts[2]));
       else app.innerHTML = await renderCallsList();
+    } else if (root === "dailyreports") {
+      if (parts[1] === "new") app.innerHTML = await renderDailyReportForm();
+      else if (parts[1] === "edit") app.innerHTML = await renderDailyReportForm(Number(parts[2]));
+      else app.innerHTML = await renderDailyReportsList();
     } else if (root === "summary") {
       app.innerHTML = await renderSummary();
     } else if (root === "settings") {
@@ -2399,6 +2714,27 @@ async function onAppClick(e) {
     seg.classList.add("is-active");
     const hidden = wrap.parentElement.querySelector(`input[type="hidden"][name="${wrap.dataset.name}"]`);
     if (hidden) hidden.value = seg.dataset.value;
+    if (wrap.dataset.name === "gotHurt") {
+      const detailField = document.getElementById("dr-accident-detail-field");
+      if (detailField) detailField.style.display = seg.dataset.value === "true" ? "flex" : "none";
+    }
+    return;
+  }
+
+  const chip = e.target.closest(".chip");
+  if (chip) {
+    const group = chip.closest(".chip-group");
+    if (group.dataset.multi === "true") {
+      chip.classList.toggle("is-active");
+    } else {
+      group.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
+      chip.classList.add("is-active");
+    }
+    const hidden = group.parentElement.querySelector(`input[type="hidden"][name="${group.dataset.name}"]`);
+    if (hidden) {
+      const active = Array.from(group.querySelectorAll(".chip.is-active")).map((c) => c.dataset.value);
+      hidden.value = active.join("|");
+    }
     return;
   }
 
@@ -2412,7 +2748,17 @@ async function onAppClick(e) {
 
   if (action === "clear-filter") {
     const obj = getFilterObj(actionEl.dataset.prefix);
-    if (obj) { obj.from = null; obj.to = null; obj.showDeleted = false; obj.q = null; }
+    if (obj) { obj.from = null; obj.to = null; obj.showDeleted = false; obj.q = null; obj.child = null; }
+    render();
+    return;
+  }
+
+  if (action === "remove-child") {
+    const name = actionEl.dataset.name;
+    const s = await loadSettings();
+    s.children = s.children.filter((c) => c !== name);
+    await dbPut("settings", s);
+    cachedSettings = s;
     render();
     return;
   }
@@ -2586,6 +2932,7 @@ async function onAppChange(e) {
         for (const s of payload.shop || []) await dbPut("shop", s);
         for (const cd of deserializeCourtDocsFromImport(payload.courtdocs)) await dbPut("courtdocs", cd);
         for (const c of payload.calls || []) await dbPut("calls", c);
+        for (const dr of payload.dailyReports || []) await dbPut("dailyReports", dr);
         if (payload.settings) { const s = Object.assign({}, payload.settings, { key: "settings" }); await dbPut("settings", s); cachedSettings = s; }
         showToast("Backup imported");
         render();
@@ -2634,6 +2981,8 @@ async function onAppSubmit(e) {
   if (type === "shop") return shopLog.submitForm(form);
   if (type === "courtdocs") return submitCourtDocsForm(form);
   if (type === "calls") return submitCallForm(form);
+  if (type === "dailyreport") return submitDailyReportForm(form);
+  if (type === "add-child") return submitAddChildForm(form);
   if (type === "settings") return submitSettingsForm(form);
 }
 
