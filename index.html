@@ -626,7 +626,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    My Divorce App
    Single-file mobile-first log tracker. Data lives entirely in this
    browser's IndexedDB (local to the device). Implements:
-     - Incident Log, Finance Log, At Camper Log, At Shop Log, Call Log,
+     - Noteworthy Log (incidents), Finance Log, At Camper Log, At Shop Log, Call Log,
        Court Docs Filed Log (with optional photo/PDF attachments),
        Daily Report (per-child daily check-in with tap-to-select chips
        for mood/sleep/eating, modeled on a paper parenting-time worksheet;
@@ -1018,7 +1018,7 @@ function matchesSearch(fields, q) {
   return fields.some((f) => (f || "").toLowerCase().indexOf(needle) !== -1);
 }
 
-/* ---------------------------- Incident Log ---------------------------- */
+/* ---------------------------- Noteworthy Log (store: incidents) ---------------------------- */
 
 function incidentRowHtml(e) {
   const deletedCls = e.deleted ? " card--deleted" : "";
@@ -1037,14 +1037,14 @@ async function renderIncidentList() {
   const all = await dbGetAll("incidents");
   const filtered = all.filter((e) => incidentInRange(e, incidentFilter)).filter((e) => incidentFilter.showDeleted ? true : !e.deleted).filter((e) => matchesSearch([e.description], incidentFilter.q));
   filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-  const rows = filtered.map(incidentRowHtml).join("") || `<div class="empty-state"><p>No incidents ${incidentFilter.showDeleted ? "" : "logged"} in this range.</p></div>`;
+  const rows = filtered.map(incidentRowHtml).join("") || `<div class="empty-state"><p>No noteworthy entries ${incidentFilter.showDeleted ? "" : "logged"} in this range.</p></div>`;
   return `
   <div class="screen">
-    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>Incident Log</h1></header>
+    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>Noteworthy Log</h1></header>
     ${filterBarHtml("incidents", incidentFilter, "Search descriptions…")}
     <div class="list">${rows}</div>
   </div>
-  <button class="fab" data-action="nav" data-href="#/incidents/new" aria-label="Add incident">+</button>`;
+  <button class="fab" data-action="nav" data-href="#/incidents/new" aria-label="Add noteworthy entry">+</button>`;
 }
 
 async function renderIncidentForm(id) {
@@ -1059,7 +1059,7 @@ async function renderIncidentForm(id) {
   <div class="screen">
     <header class="screen-header screen-header--form">
       <button type="button" class="btn-icon" data-action="nav" data-href="#/incidents" aria-label="Back">←</button>
-      <h1>${isEdit ? "Edit" : "New"} Incident</h1>
+      <h1>${isEdit ? "Edit" : "New"} Noteworthy Entry</h1>
     </header>
     ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
     <form data-form="incident" data-id="${entry ? entry.id : ""}" class="form">
@@ -1241,7 +1241,7 @@ const ICON_CALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICON_REPORT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>';
 
 const LOG_CONFIG = [
-  { store: "incidents", route: "incidents", label: "Incident Log", color: "var(--color-incidents)", icon: ICON_INCIDENTS },
+  { store: "incidents", route: "incidents", label: "Noteworthy Log", color: "var(--color-incidents)", icon: ICON_INCIDENTS },
   { store: "parentingTime", route: "parenting", label: "Parenting Time", color: "var(--color-primary)", icon: ICON_CLOCK },
   { store: "finance", route: "finance", label: "Finance Log", color: "var(--color-finance)", icon: ICON_FINANCE },
   { store: "camper", route: "camper", label: "At Camper Log", color: "var(--color-camper)", icon: ICON_CAMPER },
@@ -1385,7 +1385,7 @@ async function renderDayView(dateStr) {
       </div>` : `<p class="field-hint">No finance entries logged yet.</p>`}
     </div>
 
-    ${daySectionHtml("Incident Log", "var(--color-incidents)", dayIncidents, incidentRowHtml)}
+    ${daySectionHtml("Noteworthy Log", "var(--color-incidents)", dayIncidents, incidentRowHtml)}
     ${daySectionHtml("Finance Log", "var(--color-finance)", dayFinance, financeRowHtml)}
     ${daySectionHtml("At Camper Log", "var(--color-camper)", dayCamper, camperRow)}
     ${daySectionHtml("At Shop Log", "var(--color-shop)", dayShop, shopRow)}
