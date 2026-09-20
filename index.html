@@ -1337,6 +1337,17 @@ async function renderDayView(dateStr) {
   const camperRow = (e) => `<div class="card" data-action="nav" data-href="#/camper/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
   const shopRow = (e) => `<div class="card" data-action="nav" data-href="#/shop/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
 
+  // Rolling 6-month parenting time total, ending today (independent of the day being viewed)
+  const sixMoEnd = new Date(); sixMoEnd.setHours(0, 0, 0, 0); sixMoEnd.setDate(sixMoEnd.getDate() + 1);
+  const sixMoStart = new Date(sixMoEnd.getFullYear(), sixMoEnd.getMonth() - 6, sixMoEnd.getDate());
+  const sixMo = computeSummary(activeParenting, settings, sixMoStart, sixMoEnd);
+  const sixMoTotal = sixMo.Mom.hours + sixMo.Dad.hours;
+  const sixMoMomPct = sixMoTotal > 0 ? (sixMo.Mom.hours / sixMoTotal) * 100 : 0;
+  const sixMoDadPct = sixMoTotal > 0 ? (sixMo.Dad.hours / sixMoTotal) * 100 : 0;
+
+  // Most recent Finance Log entry overall, regardless of which day is being viewed
+  const lastFinance = finance.filter((e) => !e.deleted).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0] || null;
+
   return `
   <div class="screen">
     <header class="screen-header"><h1>Day View</h1></header>
@@ -1354,6 +1365,24 @@ async function renderDayView(dateStr) {
         <div class="legend-row legend-row--split"><span><span class="dot dot-dad"></span> Dad</span><strong>${summary.Dad.hours.toFixed(1)}h${summary.Dad.overnights > 0 ? " · overnight" : ""}</strong></div>
       </div>
       ${dayParenting.length ? `<div class="list" style="margin-top:12px;">${dayParenting.map((e) => parentingRowHtml(e, settings)).join("")}</div>` : `<p class="field-hint" style="margin-top:12px;">No parenting time period covers this day.</p>`}
+    </div>
+
+    <div class="summary-card" style="border-left:5px solid var(--color-primary);">
+      <h2>Parenting Time — Last 6 Months</h2>
+      <div class="legend">
+        <div class="legend-row legend-row--split"><span><span class="dot dot-mom"></span> Mom</span><strong>${sixMo.Mom.hours.toFixed(1)}h (${sixMoMomPct.toFixed(0)}%)</strong></div>
+        <div class="legend-row legend-row--split"><span><span class="dot dot-dad"></span> Dad</span><strong>${sixMo.Dad.hours.toFixed(1)}h (${sixMoDadPct.toFixed(0)}%)</strong></div>
+      </div>
+    </div>
+
+    <div class="summary-card" style="border-left:5px solid var(--color-finance);">
+      <h2>Last Finance Entry</h2>
+      ${lastFinance ? `
+      <div data-action="nav" data-href="#/finance/edit/${lastFinance.id}" style="cursor:pointer;">
+        <p class="card-date">${fmtDate(lastFinance.date)} · ${fmtTime(lastFinance.time)}</p>
+        <p class="card-meta">Paid ${fmtMoney(lastFinance.amountPaid)} · Support due ${fmtMoney(lastFinance.amountSupport)}</p>
+        ${lastFinance.description ? `<p class="card-desc">${escapeHtml(truncate(lastFinance.description, 100))}</p>` : ""}
+      </div>` : `<p class="field-hint">No finance entries logged yet.</p>`}
     </div>
 
     ${daySectionHtml("Incident Log", "var(--color-incidents)", dayIncidents, incidentRowHtml)}
