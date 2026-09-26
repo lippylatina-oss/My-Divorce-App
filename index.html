@@ -779,7 +779,7 @@ const FIELD_LABELS = {
   startDate: "Start date", startTime: "Start time", endDate: "End date", endTime: "End time", parent: "Parent",
   amountPaid: "Amount paid", amountSupport: "Support payment amount",
   dateFiled: "Date filed", documentName: "Document name", attachments: "Attachments",
-  durationMinutes: "Duration (minutes)",
+  durationMinutes: "Duration (minutes)", dateCommunicated: "Date communicated",
   child: "Child", specialActivities: "Special/unusual activities", ordinaryActivities: "Ordinary activities",
   mood: "Mood", moodOther: "Mood (other)",
   sleep: "Sleep", bedtimeHelp: "Something that helped at bedtime",
@@ -1335,7 +1335,6 @@ async function renderDayView(dateStr) {
   const otherCount = dayIncidents.length + dayFinance.length + dayCamper.length + dayShop.length + dayCourtdocs.length + dayCalls.length + dayReports.length;
 
   const camperRow = (e) => `<div class="card" data-action="nav" data-href="#/camper/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
-  const shopRow = (e) => `<div class="card" data-action="nav" data-href="#/shop/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
 
   // Rolling 6-month parenting time total, ending today (independent of the day being viewed)
   const sixMoEnd = new Date(); sixMoEnd.setHours(0, 0, 0, 0); sixMoEnd.setDate(sixMoEnd.getDate() + 1);
@@ -1388,7 +1387,7 @@ async function renderDayView(dateStr) {
     ${daySectionHtml("Noteworthy Log", "var(--color-incidents)", dayIncidents, incidentRowHtml)}
     ${daySectionHtml("Finance Log", "var(--color-finance)", dayFinance, financeRowHtml)}
     ${daySectionHtml("At Camper Log", "var(--color-camper)", dayCamper, camperRow)}
-    ${daySectionHtml("At Shop Log", "var(--color-shop)", dayShop, shopRow)}
+    ${daySectionHtml("At Shop Log", "var(--color-shop)", dayShop, shopRowHtml)}
     ${daySectionHtml("Court Docs Filed", "var(--color-courtdocs)", dayCourtdocs, courtDocsRowHtml)}
     ${daySectionHtml("Call Log", "var(--color-call)", dayCalls, callRowHtml)}
     ${daySectionHtml("Daily Report", "var(--color-dailyreport)", dayReports, dailyReportRowHtml)}
@@ -1603,8 +1602,10 @@ async function submitFinanceForm(form) {
   location.hash = "#/finance";
 }
 
-/* ---------------------------- At Camper / At Shop Logs ---------------------------- */
-/* Both logs are a bare date+time entry, so they share one factory. */
+/* ---------------------------- At Camper Log ---------------------------- */
+/* A bare date+time entry — uses a small shared factory in case a future
+   log needs the same shape. At Shop Log used to share this too, but it now
+   has its own extra field, so it's a dedicated log below instead. */
 
 function makeTimestampLog(storeName, routePrefix, label) {
   function rowHtml(e) {
@@ -1680,7 +1681,88 @@ function makeTimestampLog(storeName, routePrefix, label) {
 }
 
 const camperLog = makeTimestampLog("camper", "camper", "At Camper Log");
-const shopLog = makeTimestampLog("shop", "shop", "At Shop Log");
+
+/* ---------------------------- At Shop Log ---------------------------- */
+
+function shopRowHtml(e) {
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/shop/edit/${e.id}">
+    <div class="card-row">
+      <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
+    </div>
+    ${e.dateCommunicated ? `<p class="card-meta">Communicated ${fmtDate(e.dateCommunicated)}</p>` : ""}
+  </div>`;
+}
+
+async function renderShopList() {
+  const filter = logFilters.shop;
+  const all = await dbGetAll("shop");
+  const filtered = all.filter((e) => dateInRange(e, filter, "date")).filter((e) => filter.showDeleted ? true : !e.deleted);
+  filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  const rows = filtered.map(shopRowHtml).join("") || `<div class="empty-state"><p>No entries in this range.</p></div>`;
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>At Shop Log</h1></header>
+    ${filterBarHtml("shop", filter)}
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/shop/new" aria-label="Add entry">+</button>`;
+}
+
+async function renderShopForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("shop", id);
+  const isEdit = !!entry;
+  const date = (entry && entry.date) || todayISO();
+  const time = (entry && entry.time) || nowTimeHHMM();
+  const dateCommunicated = (entry && entry.dateCommunicated) || "";
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/shop" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Entry</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="shop" data-id="${entry ? entry.id : ""}" class="form">
+      <div class="field"><label for="shop-date">Date</label><input id="shop-date" name="date" type="date" value="${date}" required></div>
+      <div class="field"><label for="shop-time">Time</label><input id="shop-time" name="time" type="time" value="${time}" required></div>
+      <div class="field">
+        <label for="shop-date-communicated">Date communicated</label>
+        <p class="field-hint">The date Adam communicated he would be at the shop (optional, if known).</p>
+        <input id="shop-date-communicated" name="dateCommunicated" type="date" value="${dateCommunicated}">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="shop" data-route="shop" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitShopForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const newData = { date: fd.get("date"), time: fd.get("time"), dateCommunicated: fd.get("dateCommunicated") || "" };
+  if (!newData.date || !newData.time) { showToast("Please fill in all fields"); return; }
+  const now = nowISO();
+  if (id) {
+    const existing = await dbGet("shop", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, ["date", "time", "dateCommunicated"]);
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.updatedAt = now;
+    await dbPut("shop", existing);
+  } else {
+    const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("shop", entry);
+  }
+  showToast("Saved");
+  location.hash = "#/shop";
+}
 
 /* ---------------------------- Call Log ---------------------------- */
 /* Since a call isn't parenting time, it's tracked separately: date, time, and call duration. */
@@ -2164,7 +2246,7 @@ function formatEntryDetails(logKey, e, settings) {
   }
   if (logKey === "finance") return `Paid ${fmtMoney(e.amountPaid)}, support due ${fmtMoney(e.amountSupport)}${e.description ? " — " + e.description : ""}`;
   if (logKey === "camper") return "At camper";
-  if (logKey === "shop") return "At shop";
+  if (logKey === "shop") return e.dateCommunicated ? `At shop (Adam communicated ${fmtDate(e.dateCommunicated)})` : "At shop";
   if (logKey === "courtdocs") {
     const n = (e.attachments || []).length;
     return `${e.documentName}${n ? ` (${n} attachment${n > 1 ? "s" : ""})` : ""}`;
@@ -2319,8 +2401,11 @@ function buildLogCsvRows(key, entries, settings) {
   if (key === "finance") {
     return { headers: ["Date", "Time", "Amount Paid", "Support Payment Amount", "Description", "Created At"], rows: entries.map((e) => [e.date, e.time, e.amountPaid.toFixed(2), e.amountSupport.toFixed(2), e.description, fmtTimestamp(e.createdAt)]) };
   }
-  if (key === "camper" || key === "shop") {
+  if (key === "camper") {
     return { headers: ["Date", "Time", "Created At"], rows: entries.map((e) => [e.date, e.time, fmtTimestamp(e.createdAt)]) };
+  }
+  if (key === "shop") {
+    return { headers: ["Date", "Time", "Date Communicated", "Created At"], rows: entries.map((e) => [e.date, e.time, e.dateCommunicated || "", fmtTimestamp(e.createdAt)]) };
   }
   if (key === "courtdocs") {
     return { headers: ["Date Filed", "Document Name", "Attachment Count", "Created At"], rows: entries.map((e) => [e.dateFiled, e.documentName, (e.attachments || []).length, fmtTimestamp(e.createdAt)]) };
@@ -2391,9 +2476,12 @@ async function importCsvForLog(logKey, file) {
     } else if (logKey === "finance") {
       if (!get("Date") || !get("Time")) continue;
       rec = { date: get("Date"), time: get("Time"), amountPaid: parseFloat(get("Amount Paid")) || 0, amountSupport: parseFloat(get("Support Payment Amount")) || 0, description: get("Description") };
-    } else if (logKey === "camper" || logKey === "shop") {
+    } else if (logKey === "camper") {
       if (!get("Date") || !get("Time")) continue;
       rec = { date: get("Date"), time: get("Time") };
+    } else if (logKey === "shop") {
+      if (!get("Date") || !get("Time")) continue;
+      rec = { date: get("Date"), time: get("Time"), dateCommunicated: get("Date Communicated") };
     } else if (logKey === "courtdocs") {
       if (!get("Date Filed") || !get("Document Name")) continue;
       rec = { dateFiled: get("Date Filed"), documentName: get("Document Name"), attachments: [] };
@@ -2819,9 +2907,9 @@ async function render() {
       else if (parts[1] === "edit") app.innerHTML = await camperLog.renderForm(Number(parts[2]));
       else app.innerHTML = await camperLog.renderList();
     } else if (root === "shop") {
-      if (parts[1] === "new") app.innerHTML = await shopLog.renderForm();
-      else if (parts[1] === "edit") app.innerHTML = await shopLog.renderForm(Number(parts[2]));
-      else app.innerHTML = await shopLog.renderList();
+      if (parts[1] === "new") app.innerHTML = await renderShopForm();
+      else if (parts[1] === "edit") app.innerHTML = await renderShopForm(Number(parts[2]));
+      else app.innerHTML = await renderShopList();
     } else if (root === "courtdocs") {
       if (parts[1] === "new") { app.innerHTML = await renderCourtDocsForm(); renderAttachmentChips(); }
       else if (parts[1] === "edit") { app.innerHTML = await renderCourtDocsForm(Number(parts[2])); renderAttachmentChips(); }
@@ -3127,7 +3215,7 @@ async function onAppSubmit(e) {
   if (type === "parenting") return submitParentingForm(form);
   if (type === "finance") return submitFinanceForm(form);
   if (type === "camper") return camperLog.submitForm(form);
-  if (type === "shop") return shopLog.submitForm(form);
+  if (type === "shop") return submitShopForm(form);
   if (type === "courtdocs") return submitCourtDocsForm(form);
   if (type === "calls") return submitCallForm(form);
   if (type === "dailyreport") return submitDailyReportForm(form);
