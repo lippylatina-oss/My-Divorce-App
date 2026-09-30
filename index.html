@@ -86,10 +86,13 @@ a { color: inherit; }
 .badge-mom { background: var(--badge-mom-bg); color: var(--color-mom); }
 .badge-dad { background: var(--badge-dad-bg); color: var(--color-dad); }
 .badge-overnight { background: #e7e2fb; color: #4636b8; }
+.badge-yes { background: #d3f9d8; color: #2b8a3e; }
+.badge-no { background: var(--color-bg); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
 @media (prefers-color-scheme: dark) {
   .badge-kids { background: #4a3c05; color: #ffd968; }
   .badge-deleted { background: #4a1f1d; color: #ff8f89; }
   .badge-overnight { background: #2c2650; color: #c2b6ff; }
+  .badge-yes { background: #1b4332; color: #8ce99a; }
 }
 
 .empty-state { text-align: center; padding: 48px 16px; color: var(--color-text-secondary); }
@@ -780,6 +783,7 @@ const FIELD_LABELS = {
   amountPaid: "Amount paid", amountSupport: "Support payment amount",
   dateFiled: "Date filed", documentName: "Document name", attachments: "Attachments",
   durationMinutes: "Duration (minutes)", dateCommunicated: "Date communicated",
+  atShop: "At Shop", observationStart: "Observation window start", observationEnd: "Observation window end", atCamper: "At Camper",
   child: "Child", specialActivities: "Special/unusual activities", ordinaryActivities: "Ordinary activities",
   mood: "Mood", moodOther: "Mood (other)",
   sleep: "Sleep", bedtimeHelp: "Something that helped at bedtime",
@@ -793,7 +797,7 @@ const FIELD_LABELS = {
 function fieldLabel(f) { return FIELD_LABELS[f] || f; }
 function fmtVal(f, v) {
   if (v === undefined) return "—";
-  if (f === "kidsPresent" || f === "gotHurt") return v ? "Yes" : "No";
+  if (f === "kidsPresent" || f === "gotHurt" || f === "atShop" || f === "atCamper") return v ? "Yes" : "No";
   if (f === "amountPaid" || f === "amountSupport") return fmtMoney(v);
   if (Array.isArray(v)) return v.length ? v.join(", ") : "(none)";
   if (v === "") return "(empty)";
@@ -1334,8 +1338,6 @@ async function renderDayView(dateStr) {
   const summary = computeSummary(activeParenting, settings, start, end);
   const otherCount = dayIncidents.length + dayFinance.length + dayCamper.length + dayShop.length + dayCourtdocs.length + dayCalls.length + dayReports.length;
 
-  const camperRow = (e) => `<div class="card" data-action="nav" data-href="#/camper/edit/${e.id}"><span class="card-date">${fmtTime(e.time)}</span></div>`;
-
   // Rolling 6-month parenting time total, ending today (independent of the day being viewed)
   const sixMoEnd = new Date(); sixMoEnd.setHours(0, 0, 0, 0); sixMoEnd.setDate(sixMoEnd.getDate() + 1);
   const sixMoStart = new Date(sixMoEnd.getFullYear(), sixMoEnd.getMonth() - 6, sixMoEnd.getDate());
@@ -1386,7 +1388,7 @@ async function renderDayView(dateStr) {
 
     ${daySectionHtml("Noteworthy Log", "var(--color-incidents)", dayIncidents, incidentRowHtml)}
     ${daySectionHtml("Finance Log", "var(--color-finance)", dayFinance, financeRowHtml)}
-    ${daySectionHtml("At Camper Log", "var(--color-camper)", dayCamper, camperRow)}
+    ${daySectionHtml("At Camper Log", "var(--color-camper)", dayCamper, camperRowHtml)}
     ${daySectionHtml("At Shop Log", "var(--color-shop)", dayShop, shopRowHtml)}
     ${daySectionHtml("Court Docs Filed", "var(--color-courtdocs)", dayCourtdocs, courtDocsRowHtml)}
     ${daySectionHtml("Call Log", "var(--color-call)", dayCalls, callRowHtml)}
@@ -1603,95 +1605,103 @@ async function submitFinanceForm(form) {
 }
 
 /* ---------------------------- At Camper Log ---------------------------- */
-/* A bare date+time entry — uses a small shared factory in case a future
-   log needs the same shape. At Shop Log used to share this too, but it now
-   has its own extra field, so it's a dedicated log below instead. */
 
-function makeTimestampLog(storeName, routePrefix, label) {
-  function rowHtml(e) {
-    const deletedCls = e.deleted ? " card--deleted" : "";
-    return `
-    <div class="card${deletedCls}" data-action="nav" data-href="#/${routePrefix}/edit/${e.id}">
-      <div class="card-row">
-        <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
-        ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
-      </div>
-    </div>`;
-  }
-  async function renderList() {
-    const filter = logFilters[routePrefix];
-    const all = await dbGetAll(storeName);
-    const filtered = all.filter((e) => dateInRange(e, filter, "date")).filter((e) => filter.showDeleted ? true : !e.deleted);
-    filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-    const rows = filtered.map(rowHtml).join("") || `<div class="empty-state"><p>No entries in this range.</p></div>`;
-    return `
-    <div class="screen">
-      <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>${label}</h1></header>
-      ${filterBarHtml(routePrefix, filter)}
-      <div class="list">${rows}</div>
+function camperRowHtml(e) {
+  const deletedCls = e.deleted ? " card--deleted" : "";
+  return `
+  <div class="card${deletedCls}" data-action="nav" data-href="#/camper/edit/${e.id}">
+    <div class="card-row">
+      <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
+      <span class="badge ${e.atCamper ? "badge-yes" : "badge-no"}">At Camper: ${e.atCamper ? "Yes" : "No"}</span>
+      ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
     </div>
-    <button class="fab" data-action="nav" data-href="#/${routePrefix}/new" aria-label="Add entry">+</button>`;
-  }
-  async function renderForm(id) {
-    let entry = null;
-    if (id) entry = await dbGet(storeName, id);
-    const isEdit = !!entry;
-    const date = (entry && entry.date) || todayISO();
-    const time = (entry && entry.time) || nowTimeHHMM();
-    return `
-    <div class="screen">
-      <header class="screen-header screen-header--form">
-        <button type="button" class="btn-icon" data-action="nav" data-href="#/${routePrefix}" aria-label="Back">←</button>
-        <h1>${isEdit ? "Edit" : "New"} Entry</h1>
-      </header>
-      ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
-      <form data-form="${routePrefix}" data-id="${entry ? entry.id : ""}" class="form">
-        <div class="field"><label for="${routePrefix}-date">Date</label><input id="${routePrefix}-date" name="date" type="date" value="${date}" required></div>
-        <div class="field"><label for="${routePrefix}-time">Time</label><input id="${routePrefix}-time" name="time" type="time" value="${time}" required></div>
-        <div class="form-actions">
-          <button type="submit" class="btn-primary">Save</button>
-          ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="${storeName}" data-route="${routePrefix}" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
-        </div>
-      </form>
-      ${isEdit ? historyHtml(entry.history) : ""}
-    </div>`;
-  }
-  async function submitForm(form) {
-    const id = form.dataset.id ? Number(form.dataset.id) : null;
-    const fd = new FormData(form);
-    const newData = { date: fd.get("date"), time: fd.get("time") };
-    if (!newData.date || !newData.time) { showToast("Please fill in all fields"); return; }
-    const now = nowISO();
-    if (id) {
-      const existing = await dbGet(storeName, id);
-      existing.history = existing.history || [];
-      const changes = diffFields(existing, newData, ["date", "time"]);
-      if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
-      Object.assign(existing, newData);
-      existing.updatedAt = now;
-      await dbPut(storeName, existing);
-    } else {
-      const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
-      await dbPut(storeName, entry);
-    }
-    showToast("Saved");
-    location.hash = "#/" + routePrefix;
-  }
-  return { renderList, renderForm, submitForm };
+  </div>`;
 }
 
-const camperLog = makeTimestampLog("camper", "camper", "At Camper Log");
+async function renderCamperList() {
+  const filter = logFilters.camper;
+  const all = await dbGetAll("camper");
+  const filtered = all.filter((e) => dateInRange(e, filter, "date")).filter((e) => filter.showDeleted ? true : !e.deleted);
+  filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  const rows = filtered.map(camperRowHtml).join("") || `<div class="empty-state"><p>No entries in this range.</p></div>`;
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form"><button type="button" class="btn-icon" data-action="nav" data-href="#/logs" aria-label="Back">←</button><h1>At Camper Log</h1></header>
+    ${filterBarHtml("camper", filter)}
+    <div class="list">${rows}</div>
+  </div>
+  <button class="fab" data-action="nav" data-href="#/camper/new" aria-label="Add entry">+</button>`;
+}
+
+async function renderCamperForm(id) {
+  let entry = null;
+  if (id) entry = await dbGet("camper", id);
+  const isEdit = !!entry;
+  const date = (entry && entry.date) || todayISO();
+  const time = (entry && entry.time) || nowTimeHHMM();
+  const atCamper = entry ? entry.atCamper : false;
+  return `
+  <div class="screen">
+    <header class="screen-header screen-header--form">
+      <button type="button" class="btn-icon" data-action="nav" data-href="#/camper" aria-label="Back">←</button>
+      <h1>${isEdit ? "Edit" : "New"} Entry</h1>
+    </header>
+    ${isEdit ? `<p class="logged-caption">Logged ${fmtTimestamp(entry.createdAt)}</p>` : ""}
+    <form data-form="camper" data-id="${entry ? entry.id : ""}" class="form">
+      <div class="field"><label for="camper-date">Date</label><input id="camper-date" name="date" type="date" value="${date}" required></div>
+      <div class="field"><label for="camper-time">Time</label><input id="camper-time" name="time" type="time" value="${time}" required></div>
+      <div class="field">
+        <label>At Camper</label>
+        <div class="segmented" data-name="atCamper">
+          <button type="button" class="segmented-option ${atCamper ? "is-active" : ""}" data-value="true">Yes</button>
+          <button type="button" class="segmented-option ${!atCamper ? "is-active" : ""}" data-value="false">No</button>
+        </div>
+        <input type="hidden" name="atCamper" value="${atCamper}">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="camper" data-route="camper" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
+      </div>
+    </form>
+    ${isEdit ? historyHtml(entry.history) : ""}
+  </div>`;
+}
+
+async function submitCamperForm(form) {
+  const id = form.dataset.id ? Number(form.dataset.id) : null;
+  const fd = new FormData(form);
+  const newData = { date: fd.get("date"), time: fd.get("time"), atCamper: fd.get("atCamper") === "true" };
+  if (!newData.date || !newData.time) { showToast("Please fill in all fields"); return; }
+  const now = nowISO();
+  if (id) {
+    const existing = await dbGet("camper", id);
+    existing.history = existing.history || [];
+    const changes = diffFields(existing, newData, ["date", "time", "atCamper"]);
+    if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
+    Object.assign(existing, newData);
+    existing.updatedAt = now;
+    await dbPut("camper", existing);
+  } else {
+    const entry = Object.assign({}, newData, { createdAt: now, updatedAt: now, deleted: false, history: [{ ts: now, action: "created", changes: {} }] });
+    await dbPut("camper", entry);
+  }
+  showToast("Saved");
+  location.hash = "#/camper";
+}
 
 /* ---------------------------- At Shop Log ---------------------------- */
 
 function shopRowHtml(e) {
   const deletedCls = e.deleted ? " card--deleted" : "";
+  const hasWindow = e.observationStart && e.observationEnd;
   return `
   <div class="card${deletedCls}" data-action="nav" data-href="#/shop/edit/${e.id}">
     <div class="card-row">
       <span class="card-date">${fmtDate(e.date)} · ${fmtTime(e.time)}</span>
+      <span class="badge ${e.atShop ? "badge-yes" : "badge-no"}">At Shop: ${e.atShop ? "Yes" : "No"}</span>
       ${e.deleted ? '<span class="badge badge-deleted">Deleted</span>' : ""}
     </div>
+    ${hasWindow ? `<p class="card-meta">Observed ${fmtTime(e.observationStart)} – ${fmtTime(e.observationEnd)}</p>` : ""}
     ${e.dateCommunicated ? `<p class="card-meta">Communicated ${fmtDate(e.dateCommunicated)}</p>` : ""}
   </div>`;
 }
@@ -1718,6 +1728,9 @@ async function renderShopForm(id) {
   const date = (entry && entry.date) || todayISO();
   const time = (entry && entry.time) || nowTimeHHMM();
   const dateCommunicated = (entry && entry.dateCommunicated) || "";
+  const atShop = entry ? entry.atShop : false;
+  const observationStart = (entry && entry.observationStart) || "";
+  const observationEnd = (entry && entry.observationEnd) || "";
   return `
   <div class="screen">
     <header class="screen-header screen-header--form">
@@ -1733,6 +1746,23 @@ async function renderShopForm(id) {
         <p class="field-hint">The date Adam communicated he would be at the shop (optional, if known).</p>
         <input id="shop-date-communicated" name="dateCommunicated" type="date" value="${dateCommunicated}">
       </div>
+      <div class="field">
+        <label>Observation window</label>
+        <p class="field-hint">The time frame you were watching for him (optional), e.g. 8:45 AM – 12:00 PM.</p>
+        <div class="time-range-row">
+          <input type="time" name="observationStart" value="${observationStart}">
+          <span>to</span>
+          <input type="time" name="observationEnd" value="${observationEnd}">
+        </div>
+      </div>
+      <div class="field">
+        <label>At Shop</label>
+        <div class="segmented" data-name="atShop">
+          <button type="button" class="segmented-option ${atShop ? "is-active" : ""}" data-value="true">Yes</button>
+          <button type="button" class="segmented-option ${!atShop ? "is-active" : ""}" data-value="false">No</button>
+        </div>
+        <input type="hidden" name="atShop" value="${atShop}">
+      </div>
       <div class="form-actions">
         <button type="submit" class="btn-primary">Save</button>
         ${isEdit ? `<button type="button" class="btn-danger" data-action="${entry.deleted ? "restore-entry" : "delete-entry"}" data-store="shop" data-route="shop" data-id="${entry.id}">${entry.deleted ? "Restore" : "Delete"}</button>` : ""}
@@ -1745,13 +1775,19 @@ async function renderShopForm(id) {
 async function submitShopForm(form) {
   const id = form.dataset.id ? Number(form.dataset.id) : null;
   const fd = new FormData(form);
-  const newData = { date: fd.get("date"), time: fd.get("time"), dateCommunicated: fd.get("dateCommunicated") || "" };
+  const newData = {
+    date: fd.get("date"), time: fd.get("time"),
+    dateCommunicated: fd.get("dateCommunicated") || "",
+    observationStart: fd.get("observationStart") || "",
+    observationEnd: fd.get("observationEnd") || "",
+    atShop: fd.get("atShop") === "true"
+  };
   if (!newData.date || !newData.time) { showToast("Please fill in all fields"); return; }
   const now = nowISO();
   if (id) {
     const existing = await dbGet("shop", id);
     existing.history = existing.history || [];
-    const changes = diffFields(existing, newData, ["date", "time", "dateCommunicated"]);
+    const changes = diffFields(existing, newData, ["date", "time", "dateCommunicated", "observationStart", "observationEnd", "atShop"]);
     if (Object.keys(changes).length) existing.history.push({ ts: now, action: "edited", changes });
     Object.assign(existing, newData);
     existing.updatedAt = now;
@@ -2245,8 +2281,13 @@ function formatEntryDetails(logKey, e, settings) {
     return `${e.parent} parenting time: ${fmtDateTime(e.startDate, e.startTime)} → ${fmtDateTime(e.endDate, e.endTime)} (${hours.toFixed(1)}h${overnights > 0 ? ", " + overnights + " overnight" + (overnights > 1 ? "s" : "") : ""})`;
   }
   if (logKey === "finance") return `Paid ${fmtMoney(e.amountPaid)}, support due ${fmtMoney(e.amountSupport)}${e.description ? " — " + e.description : ""}`;
-  if (logKey === "camper") return "At camper";
-  if (logKey === "shop") return e.dateCommunicated ? `At shop (Adam communicated ${fmtDate(e.dateCommunicated)})` : "At shop";
+  if (logKey === "camper") return `At camper: ${e.atCamper ? "Yes" : "No"}`;
+  if (logKey === "shop") {
+    const parts = [`At shop: ${e.atShop ? "Yes" : "No"}`];
+    if (e.observationStart && e.observationEnd) parts.push(`observed ${fmtTime(e.observationStart)}–${fmtTime(e.observationEnd)}`);
+    if (e.dateCommunicated) parts.push(`Adam communicated ${fmtDate(e.dateCommunicated)}`);
+    return parts.join(", ");
+  }
   if (logKey === "courtdocs") {
     const n = (e.attachments || []).length;
     return `${e.documentName}${n ? ` (${n} attachment${n > 1 ? "s" : ""})` : ""}`;
@@ -2402,10 +2443,10 @@ function buildLogCsvRows(key, entries, settings) {
     return { headers: ["Date", "Time", "Amount Paid", "Support Payment Amount", "Description", "Created At"], rows: entries.map((e) => [e.date, e.time, e.amountPaid.toFixed(2), e.amountSupport.toFixed(2), e.description, fmtTimestamp(e.createdAt)]) };
   }
   if (key === "camper") {
-    return { headers: ["Date", "Time", "Created At"], rows: entries.map((e) => [e.date, e.time, fmtTimestamp(e.createdAt)]) };
+    return { headers: ["Date", "Time", "At Camper", "Created At"], rows: entries.map((e) => [e.date, e.time, e.atCamper ? "Yes" : "No", fmtTimestamp(e.createdAt)]) };
   }
   if (key === "shop") {
-    return { headers: ["Date", "Time", "Date Communicated", "Created At"], rows: entries.map((e) => [e.date, e.time, e.dateCommunicated || "", fmtTimestamp(e.createdAt)]) };
+    return { headers: ["Date", "Time", "Date Communicated", "Observation Start", "Observation End", "At Shop", "Created At"], rows: entries.map((e) => [e.date, e.time, e.dateCommunicated || "", e.observationStart || "", e.observationEnd || "", e.atShop ? "Yes" : "No", fmtTimestamp(e.createdAt)]) };
   }
   if (key === "courtdocs") {
     return { headers: ["Date Filed", "Document Name", "Attachment Count", "Created At"], rows: entries.map((e) => [e.dateFiled, e.documentName, (e.attachments || []).length, fmtTimestamp(e.createdAt)]) };
@@ -2478,10 +2519,10 @@ async function importCsvForLog(logKey, file) {
       rec = { date: get("Date"), time: get("Time"), amountPaid: parseFloat(get("Amount Paid")) || 0, amountSupport: parseFloat(get("Support Payment Amount")) || 0, description: get("Description") };
     } else if (logKey === "camper") {
       if (!get("Date") || !get("Time")) continue;
-      rec = { date: get("Date"), time: get("Time") };
+      rec = { date: get("Date"), time: get("Time"), atCamper: /^y/i.test(get("At Camper")) };
     } else if (logKey === "shop") {
       if (!get("Date") || !get("Time")) continue;
-      rec = { date: get("Date"), time: get("Time"), dateCommunicated: get("Date Communicated") };
+      rec = { date: get("Date"), time: get("Time"), dateCommunicated: get("Date Communicated"), observationStart: get("Observation Start"), observationEnd: get("Observation End"), atShop: /^y/i.test(get("At Shop")) };
     } else if (logKey === "courtdocs") {
       if (!get("Date Filed") || !get("Document Name")) continue;
       rec = { dateFiled: get("Date Filed"), documentName: get("Document Name"), attachments: [] };
@@ -2903,9 +2944,9 @@ async function render() {
       else if (parts[1] === "edit") app.innerHTML = await renderFinanceForm(Number(parts[2]));
       else app.innerHTML = await renderFinanceList();
     } else if (root === "camper") {
-      if (parts[1] === "new") app.innerHTML = await camperLog.renderForm();
-      else if (parts[1] === "edit") app.innerHTML = await camperLog.renderForm(Number(parts[2]));
-      else app.innerHTML = await camperLog.renderList();
+      if (parts[1] === "new") app.innerHTML = await renderCamperForm();
+      else if (parts[1] === "edit") app.innerHTML = await renderCamperForm(Number(parts[2]));
+      else app.innerHTML = await renderCamperList();
     } else if (root === "shop") {
       if (parts[1] === "new") app.innerHTML = await renderShopForm();
       else if (parts[1] === "edit") app.innerHTML = await renderShopForm(Number(parts[2]));
@@ -3214,7 +3255,7 @@ async function onAppSubmit(e) {
   if (type === "incident") return submitIncidentForm(form);
   if (type === "parenting") return submitParentingForm(form);
   if (type === "finance") return submitFinanceForm(form);
-  if (type === "camper") return camperLog.submitForm(form);
+  if (type === "camper") return submitCamperForm(form);
   if (type === "shop") return submitShopForm(form);
   if (type === "courtdocs") return submitCourtDocsForm(form);
   if (type === "calls") return submitCallForm(form);
